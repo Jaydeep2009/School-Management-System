@@ -1,0 +1,27 @@
+{
+  "name": "sms-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-01-15",
+  "compatibility_flags": ["nodejs_compat"],
+  
+  // D1 Database binding
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sms-db",
+      "database_id": "local-db",
+      "preview_database_id": "local-db"
+    }
+  ],
+
+  // Development settings
+  "observability": {
+    "enabled": true
+  },
+
+  // Build configuration
+  "build": {
+    "command": "echo 'Building...'",
+    "watch_dirs": ["src"]
+  }
+}
