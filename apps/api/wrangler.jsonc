@@ -21,7 +21,6 @@
 
   // Build configuration
   "build": {
-    "command": "echo 'Building...'",
-    "watch_dirs": ["src"]
+    "command": "echo 'Building...'"
   }
 }
