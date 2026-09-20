@@ -268,8 +268,21 @@ export async function voidFeeCharge(
  */
 
 /**
- * Create fee payment with atomic receipt number generation
- * Uses D1 batch to group receipt counter increment and payment insert
+ * Create fee payment with receipt number generation
+ * 
+ * IMPORTANT: This executes TWO sequential operations:
+ * 1. Generate receipt number (atomic counter increment)
+ * 2. Insert payment record with that receipt number
+ * 
+ * These are NOT atomic together because:
+ * - D1/SQLite RETURNING value cannot be passed between batch statements
+ * - Payment INSERT requires the receipt_no from counter INCREMENT
+ * 
+ * Guarantees:
+ * - NO duplicate receipt numbers (counter increment is atomic)
+ * - NO payment without receipt number (we generate first, then insert)
+ * - Receipt gaps are POSSIBLE (if payment insert fails after counter increment)
+ * - This is ACCEPTABLE per financial system requirements
  */
 export async function createFeePaymentWithReceipt(
   db: D1Database,
@@ -281,45 +294,7 @@ export async function createFeePaymentWithReceipt(
   const id = crypto.randomUUID();
   const now = Date.now();
 
-  // Use batch to execute both statements together
-  // D1 batch provides better atomicity than separate calls
-  const batch = [
-    // 1. Increment counter and get receipt number
-    db
-      .prepare(
-        `INSERT INTO receipt_counters (school_id, financial_year, last_number)
-         VALUES (?, ?, 1)
-         ON CONFLICT (school_id, financial_year)
-         DO UPDATE SET last_number = last_number + 1
-         RETURNING last_number`
-      )
-      .bind(schoolId, financialYear),
-    
-    // 2. Insert payment (will fail if receipt counter statement fails)
-    db
-      .prepare(
-        `INSERT INTO fee_payments (
-           id, school_id, student_id, academic_year_id, receipt_no,
-           amount_paise, paid_on, method, reference, recorded_by, created_at
-         )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        id,
-        schoolId,
-        data.student_id,
-        data.academic_year_id,
-        '', // Placeholder - will be replaced below
-        data.amount_paise,
-        data.paid_on,
-        data.method,
-        data.reference || null,
-        userId,
-        now
-      ),
-  ];
-
-  // Execute counter increment first to get receipt number
+  // Step 1: Generate receipt number atomically
   const counterResult = await db
     .prepare(
       `INSERT INTO receipt_counters (school_id, financial_year, last_number)
@@ -337,58 +312,8 @@ export async function createFeePaymentWithReceipt(
 
   const receiptNo = counterResult.last_number.toString().padStart(6, '0');
 
-  // Now insert payment with the generated receipt number
-  await db
-    .prepare(
-      `INSERT INTO fee_payments (
-         id, school_id, student_id, academic_year_id, receipt_no,
-         amount_paise, paid_on, method, reference, recorded_by, created_at
-       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      id,
-      schoolId,
-      data.student_id,
-      data.academic_year_id,
-      receiptNo,
-      data.amount_paise,
-      data.paid_on,
-      data.method,
-      data.reference || null,
-      userId,
-      now
-    )
-    .run();
-
-  return {
-    id,
-    school_id: schoolId,
-    student_id: data.student_id,
-    academic_year_id: data.academic_year_id,
-    receipt_no: receiptNo,
-    amount_paise: data.amount_paise,
-    paid_on: data.paid_on,
-    method: data.method,
-    reference: data.reference || null,
-    recorded_by: userId,
-    created_at: now,
-    voided_at: null,
-    voided_by: null,
-    void_reason: null,
-  };
-}
-
-export async function createFeePayment(
-  db: D1Database,
-  schoolId: string,
-  receiptNo: string,
-  data: CreateFeePaymentRequest,
-  userId: string
-): Promise<FeePayment> {
-  const id = crypto.randomUUID();
-  const now = Date.now();
-
+  // Step 2: Insert payment with generated receipt number
+  // If this fails, receipt number is skipped (gap) - acceptable
   await db
     .prepare(
       `INSERT INTO fee_payments (
