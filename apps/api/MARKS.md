@@ -52,6 +52,15 @@ Individual student mark record:
 - **MODIFY**: Can only modify marks for subjects they are assigned to (via teaching_assignments)
 - Being a class teacher does NOT grant modification permission for unassigned subjects
 
+**Example:**
+Teacher A is class teacher of 10-A and teaches Mathematics in 10-A (has teaching_assignment).
+
+- Mathematics (assigned): CREATE ✓, VIEW ✓, MODIFY ✓, PUBLISH/LOCK ✓
+- English (not assigned): CREATE ✗, VIEW ✓, MODIFY ✗, PUBLISH/LOCK ✗
+- Science (not assigned): CREATE ✗, VIEW ✓, MODIFY ✗, PUBLISH/LOCK ✗
+
+Class teacher role provides **view-only** access to unassigned subjects.
+
 ### Student
 - View own marks only via `/me/marks` endpoint
 - Can only see published assessments
@@ -421,12 +430,19 @@ Bulk marks entry validates all entries before committing any writes:
 
 ## Authorization Matrix
 
-| Actor            | Create | View Own Subject | View Other Subjects (Class) | Modify Own | Modify Locked | Publish/Lock | Unlock |
-| ---------------- | ------ | ---------------- | --------------------------- | ---------- | ------------- | ------------ | ------ |
-| Principal        | ✓      | ✓                | ✓                           | ✓          | ✓ (override)  | ✓            | ✓      |
-| Assigned Teacher | ✓      | ✓                | ✗                           | ✓          | ✗             | ✓            | ✗      |
-| Class Teacher    | ✗      | ✓                | ✓ (view only)               | ✗          | ✗             | ✗            | ✗      |
-| Student          | ✗      | ✓ (own, pub.)    | ✓ (own, pub.)               | ✗          | ✗             | ✗            | ✗      |
+The system does NOT have a separate "class teacher" role. Authorization is based on:
+- **Principal**: Full school authority
+- **Teacher with teaching assignment**: Create/modify/publish/lock for assigned subjects
+- **Teacher who is class teacher**: View-only access to all subjects in their classroom
+
+| User Type                           | Create | View | Modify | Modify Locked | Publish/Lock | Unlock |
+| ----------------------------------- | ------ | ---- | ------ | ------------- | ------------ | ------ |
+| **Principal**                       | ✓ All  | ✓ All| ✓ All  | ✓ (override)  | ✓            | ✓      |
+| **Teacher with assignment**         | ✓ Own  | ✓ Own| ✓ Own  | ✗             | ✓ Own        | ✗      |
+| **Teacher as class teacher only**   | ✗      | ✓ All in class | ✗    | ✗             | ✗            | ✗      |
+| **Student**                         | ✗      | ✓ Own (published) | ✗  | ✗             | ✗            | ✗      |
+
+**Important**: A teacher who is BOTH class teacher AND has a teaching assignment for a subject gets full create/modify/publish/lock permissions for that subject. Being class teacher alone only grants view access to other subjects.
 
 ## Error Codes
 
