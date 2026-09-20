@@ -64,6 +64,40 @@ export const AuthEvents = {
 } as const;
 
 /**
+ * Authorization event types
+ */
+export const AuthzEvents = {
+  // Authorization decisions
+  AUTHZ_DENIED: 'AUTHZ_DENIED',
+  AUTHZ_GRANTED: 'AUTHZ_GRANTED',
+  
+  // Tenant isolation
+  TENANT_MISMATCH: 'AUTHZ_TENANT_MISMATCH',
+  CROSS_TENANT_ATTEMPT: 'AUTHZ_CROSS_TENANT_ATTEMPT',
+  
+  // Role checks
+  INSUFFICIENT_ROLE: 'AUTHZ_INSUFFICIENT_ROLE',
+  
+  // Relationship checks
+  RELATIONSHIP_MISSING: 'AUTHZ_RELATIONSHIP_MISSING',
+  SELF_ACCESS_VIOLATION: 'AUTHZ_SELF_ACCESS_VIOLATION',
+} as const;
+
+/**
+ * Reason codes for authorization failures
+ */
+export const AuthzFailureReasons = {
+  FORBIDDEN: 'FORBIDDEN',
+  INSUFFICIENT_ROLE: 'INSUFFICIENT_ROLE',
+  TENANT_MISMATCH: 'TENANT_MISMATCH',
+  RELATIONSHIP_REQUIRED: 'RELATIONSHIP_REQUIRED',
+  SELF_ACCESS_ONLY: 'SELF_ACCESS_ONLY',
+  NO_TEACHING_ASSIGNMENT: 'NO_TEACHING_ASSIGNMENT',
+  NOT_CLASS_TEACHER: 'NOT_CLASS_TEACHER',
+  CROSS_SCHOOL_ACCESS: 'CROSS_SCHOOL_ACCESS',
+} as const;
+
+/**
  * Reason codes for authentication failures
  */
 export const AuthFailureReasons = {
