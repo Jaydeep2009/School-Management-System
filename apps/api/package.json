@@ -15,9 +15,12 @@
     "db:reset": "wrangler d1 execute DB --local --command=\"DROP TABLE IF EXISTS schools; DROP TABLE IF EXISTS users; DROP TABLE IF EXISTS sessions; DROP TABLE IF EXISTS teacher_profiles; DROP TABLE IF EXISTS student_profiles; DROP TABLE IF EXISTS academic_years; DROP TABLE IF EXISTS classrooms; DROP TABLE IF EXISTS subjects; DROP TABLE IF EXISTS teaching_assignments; DROP TABLE IF EXISTS enrollments; DROP TABLE IF EXISTS promotion_batches; DROP TABLE IF EXISTS promotion_items; DROP TABLE IF EXISTS attendance_sessions; DROP TABLE IF EXISTS attendance_entries; DROP TABLE IF EXISTS assessments; DROP TABLE IF EXISTS marks; DROP TABLE IF EXISTS assignments; DROP TABLE IF EXISTS assignment_attachments; DROP TABLE IF EXISTS fee_categories; DROP TABLE IF EXISTS fee_charges; DROP TABLE IF EXISTS fee_payments; DROP TABLE IF EXISTS receipt_counters; DROP TABLE IF EXISTS code_counters; DROP TABLE IF EXISTS import_jobs; DROP TABLE IF EXISTS audit_log; DROP TABLE IF EXISTS _cf_KV; DROP TABLE IF EXISTS d1_migrations;\" && pnpm db:migrate"
   },
   "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "@noble/hashes": "^2.4.0",
     "@sms/shared": "workspace:*",
     "drizzle-orm": "^0.29.3",
     "hono": "^4.0.0",
+    "jose": "^6.2.12",
     "ulidx": "^2.4.1",
     "zod": "^3.22.4"
   },

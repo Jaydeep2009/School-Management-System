@@ -22,5 +22,11 @@
   // Build configuration
   "build": {
     "command": "echo 'Building...'"
+  },
+
+  // Development environment variables (local only)
+  // For production, set these as secrets using: wrangler secret put JWT_SECRET
+  "vars": {
+    "JWT_SECRET": "dev-secret-change-in-production-use-wrangler-secret-put"
   }
 }
