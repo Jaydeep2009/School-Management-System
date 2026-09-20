@@ -8,6 +8,9 @@ import classroomRoutes from './academic/classroom.routes';
 import subjectRoutes from './academic/subject.routes';
 import teachingAssignmentRoutes from './academic/teaching-assignment.routes';
 import enrollmentRoutes from './academic/enrollment.routes';
+import teacherRoutes from './accounts/teacher.routes';
+import studentRoutes from './accounts/student.routes';
+import meRoutes from './accounts/me.routes';
 
 export type Env = {
   DB: D1Database;
@@ -28,6 +31,9 @@ app.route('/classrooms', classroomRoutes);
 app.route('/subjects', subjectRoutes);
 app.route('/teaching-assignments', teachingAssignmentRoutes);
 app.route('/enrollments', enrollmentRoutes);
+app.route('/teachers', teacherRoutes);
+app.route('/students', studentRoutes);
+app.route('/me', meRoutes);
 
 // Default route
 app.get('/', (c) => {

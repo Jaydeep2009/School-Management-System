@@ -1,0 +1,84 @@
+/**
+ * Me Routes
+ * 
+ * GET /me/profile - Get current user's profile
+ * 
+ * Authorization: Any authenticated user
+ * Returns the profile based on the user's role (teacher or student)
+ */
+
+import { Hono } from 'hono';
+import * as teacherRepo from './teacher.repository';
+import * as studentRepo from './student.repository';
+import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+
+const me = new Hono<AuthContext>();
+
+/**
+ * GET /me/profile
+ * Get current user's profile
+ * 
+ * Authorization: Any authenticated user
+ * Returns teacher or student profile based on role
+ * 
+ * SECURITY:
+ * - Uses tenant.userId from authenticated token
+ * - Role-based profile lookup
+ * - School-scoped queries
+ */
+me.get('/profile', requireAuth, async (c) => {
+  try {
+    const tenant = getTenant(c);
+    
+    // Based on role, fetch appropriate profile
+    if (tenant.role === 'teacher') {
+      const profile = await teacherRepo.findByUserId(c.env.DB, tenant.userId, tenant.schoolId);
+      
+      if (!profile) {
+        return c.json({ error: 'Teacher profile not found' }, 404);
+      }
+      
+      return c.json({
+        data: {
+          type: 'teacher',
+          profile,
+        },
+      }, 200);
+    }
+    
+    if (tenant.role === 'student') {
+      const profile = await studentRepo.findByUserId(c.env.DB, tenant.userId, tenant.schoolId);
+      
+      if (!profile) {
+        return c.json({ error: 'Student profile not found' }, 404);
+      }
+      
+      return c.json({
+        data: {
+          type: 'student',
+          profile,
+        },
+      }, 200);
+    }
+    
+    if (tenant.role === 'principal') {
+      // Principal doesn't have a separate profile
+      // They can access their user information from the auth context
+      return c.json({
+        data: {
+          type: 'principal',
+          user_id: tenant.userId,
+          school_id: tenant.schoolId,
+        },
+      }, 200);
+    }
+    
+    // Unknown role
+    return c.json({ error: 'Profile not available for this role' }, 404);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to get profile';
+    return c.json({ error: message }, 500);
+  }
+});
+
+export default me;

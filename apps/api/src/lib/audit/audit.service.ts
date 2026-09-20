@@ -5,8 +5,14 @@
  * SECURITY: Audit entries are immutable (enforced by DB triggers)
  */
 
-import { randomUUID } from 'node:crypto';
 import type { TenantContext } from '../../auth/auth.types';
+
+/**
+ * Generate a random UUID
+ */
+function generateUUID(): string {
+  return crypto.randomUUID();
+}
 
 export type AuditAction =
   | 'created'
@@ -14,6 +20,10 @@ export type AuditAction =
   | 'deleted'
   | 'activated'
   | 'closed'
+  | 'disabled'
+  | 'reactivated'
+  | 'reset_password'
+  | 'bulk_created'
   | 'status_changed'
   | 'class_teacher_assigned'
   | 'class_teacher_removed'
@@ -28,7 +38,9 @@ export type AuditEntity =
   | 'classroom'
   | 'subject'
   | 'teaching_assignment'
-  | 'enrollment';
+  | 'enrollment'
+  | 'teacher'
+  | 'student';
 
 export interface AuditLogEntry {
   id: string;
@@ -37,7 +49,7 @@ export interface AuditLogEntry {
   actor_role: string;
   action: AuditAction;
   entity: AuditEntity;
-  entity_id: string;
+  entity_id: string | null;
   before: string | null;
   after: string | null;
   at: number;
@@ -50,7 +62,7 @@ export interface AuditLogEntry {
  * @param tenant - Tenant context (actor information)
  * @param action - Action performed
  * @param entity - Entity type
- * @param entityId - Entity ID
+ * @param entityId - Entity ID (null for bulk operations)
  * @param before - State before change (for updates/deletes)
  * @param after - State after change (for creates/updates)
  */
@@ -59,11 +71,11 @@ export async function logAudit(
   tenant: TenantContext,
   action: AuditAction,
   entity: AuditEntity,
-  entityId: string,
+  entityId: string | null,
   before?: unknown | null,
   after?: unknown | null
 ): Promise<void> {
-  const id = randomUUID();
+  const id = generateUUID();
   const now = Date.now();
 
   try {
