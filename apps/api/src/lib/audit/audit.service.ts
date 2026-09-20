@@ -49,7 +49,13 @@ export type AuditAction =
   | 'assignment_published'
   | 'assignment_closed'
   | 'assignment_attachment_added'
-  | 'assignment_attachment_deleted';
+  | 'assignment_attachment_deleted'
+  | 'fee_category_created'
+  | 'fee_category_updated'
+  | 'fee_charge_created'
+  | 'fee_charge_voided'
+  | 'fee_payment_recorded'
+  | 'fee_payment_voided';
 
 export type AuditEntity =
   | 'academic_year'
@@ -62,7 +68,10 @@ export type AuditEntity =
   | 'attendance_session'
   | 'assessment'
   | 'marks'
-  | 'assignment';
+  | 'assignment'
+  | 'fee_category'
+  | 'fee_charge'
+  | 'fee_payment';
 
 export interface AuditLogEntry {
   id: string;

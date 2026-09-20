@@ -16,10 +16,12 @@ import * as studentRepo from './student.repository';
 import * as attendanceService from '../attendance/attendance.service';
 import * as marksService from '../marks/marks.service';
 import * as assignmentsService from '../assignments/assignments.service';
+import * as feesService from '../fees/fees.service';
 import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
 import { AttendanceError } from '../attendance/attendance.errors';
 import { MarksError } from '../marks/marks.errors';
 import { AssignmentsError } from '../assignments/assignments.errors';
+import { FeesError } from '../fees/fees.errors';
 
 const me = new Hono<AuthContext>();
 
@@ -163,6 +165,36 @@ me.get('/assignments', requireAuth, async (c) => {
       return c.json({ error: error.message }, error.statusCode as any);
     }
     const message = error instanceof Error ? error.message : 'Failed to get assignments';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
+ * GET /me/fees/:academicYearId
+ * Get student's own fee details for an academic year
+ * Authorization: Student only
+ * 
+ * SECURITY:
+ * - Student ID derived from authenticated token
+ * - Cannot access another student's fees
+ */
+me.get('/fees/:academicYearId', requireAuth, async (c) => {
+  try {
+    const tenant = getTenant(c);
+    const academicYearId = c.req.param('academicYearId');
+    
+    if (!academicYearId) {
+      return c.json({ error: 'Academic year ID is required' }, 400);
+    }
+    
+    const data = await feesService.getStudentFeeDetails(c.env.DB, academicYearId, tenant);
+    
+    return c.json({ data }, 200);
+  } catch (error) {
+    if (error instanceof FeesError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to get fees';
     return c.json({ error: message }, 500);
   }
 });
