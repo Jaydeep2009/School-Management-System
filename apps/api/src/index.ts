@@ -15,6 +15,7 @@ import attendanceRoutes from './attendance/attendance.routes';
 import marksRoutes from './marks/marks.routes';
 import assignmentsRoutes from './assignments/assignments.routes';
 import feesRoutes from './fees/fees.routes';
+import promotionRoutes from './promotion/promotion.routes';
 
 export type Env = {
   DB: D1Database;
@@ -42,6 +43,7 @@ app.route('/attendance', attendanceRoutes);
 app.route('/marks', marksRoutes);
 app.route('/assignments', assignmentsRoutes);
 app.route('/fees', feesRoutes);
+app.route('/promotions', promotionRoutes);
 app.route('/me', meRoutes);
 
 // Default route
