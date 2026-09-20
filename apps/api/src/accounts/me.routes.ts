@@ -3,6 +3,7 @@
  * 
  * GET /me/profile - Get current user's profile
  * GET /me/attendance - Get student's own attendance
+ * GET /me/marks - Get student's own marks
  * 
  * Authorization: Any authenticated user
  * Returns the profile based on the user's role (teacher or student)
@@ -12,8 +13,10 @@ import { Hono } from 'hono';
 import * as teacherRepo from './teacher.repository';
 import * as studentRepo from './student.repository';
 import * as attendanceService from '../attendance/attendance.service';
+import * as marksService from '../marks/marks.service';
 import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
 import { AttendanceError } from '../attendance/attendance.errors';
+import { MarksError } from '../marks/marks.errors';
 
 const me = new Hono<AuthContext>();
 
@@ -105,6 +108,32 @@ me.get('/attendance', requireAuth, async (c) => {
       return c.json({ error: error.message }, error.statusCode as any);
     }
     const message = error instanceof Error ? error.message : 'Failed to get attendance';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
+ * GET /me/marks
+ * Get student's own marks
+ * Authorization: Student only
+ * 
+ * SECURITY:
+ * - Student ID derived from authenticated token
+ * - Cannot access another student's marks
+ * - Only published assessments are shown
+ */
+me.get('/marks', requireAuth, async (c) => {
+  try {
+    const tenant = getTenant(c);
+    
+    const data = await marksService.getMyMarks(c.env.DB, tenant);
+    
+    return c.json({ data }, 200);
+  } catch (error) {
+    if (error instanceof MarksError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to get marks';
     return c.json({ error: message }, 500);
   }
 });
