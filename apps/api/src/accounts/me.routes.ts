@@ -2,6 +2,7 @@
  * Me Routes
  * 
  * GET /me/profile - Get current user's profile
+ * GET /me/attendance - Get student's own attendance
  * 
  * Authorization: Any authenticated user
  * Returns the profile based on the user's role (teacher or student)
@@ -10,7 +11,9 @@
 import { Hono } from 'hono';
 import * as teacherRepo from './teacher.repository';
 import * as studentRepo from './student.repository';
+import * as attendanceService from '../attendance/attendance.service';
 import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { AttendanceError } from '../attendance/attendance.errors';
 
 const me = new Hono<AuthContext>();
 
@@ -77,6 +80,31 @@ me.get('/profile', requireAuth, async (c) => {
     return c.json({ error: 'Profile not available for this role' }, 404);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to get profile';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
+ * GET /me/attendance
+ * Get student's own attendance
+ * Authorization: Student only
+ * 
+ * SECURITY:
+ * - Student ID derived from authenticated token
+ * - Cannot access another student's attendance
+ */
+me.get('/attendance', requireAuth, async (c) => {
+  try {
+    const tenant = getTenant(c);
+    
+    const data = await attendanceService.getMyAttendance(c.env.DB, tenant);
+    
+    return c.json({ data }, 200);
+  } catch (error) {
+    if (error instanceof AttendanceError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to get attendance';
     return c.json({ error: message }, 500);
   }
 });

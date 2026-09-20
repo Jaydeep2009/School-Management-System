@@ -200,6 +200,7 @@ export async function canUnlockAttendanceSession(
 
 /**
  * Helper: Check if session is outside teacher edit window
+ * Edit window is calculated from the session date, not the created_at timestamp
  */
 function isOutsideEditWindow(
   session: AttendanceSession,
@@ -207,9 +208,14 @@ function isOutsideEditWindow(
 ): boolean {
   const now = Date.now();
   const windowMs = editWindowHours * 60 * 60 * 1000;
-  const sessionTime = session.created_at;
   
-  return (now - sessionTime) > windowMs;
+  // Parse session_date (YYYY-MM-DD) and convert to timestamp
+  // Session date is in the school timezone (Asia/Kolkata), but for edit window
+  // we calculate from end of that calendar day
+  const sessionDate = new Date(session.session_date + 'T23:59:59');
+  const sessionEndTime = sessionDate.getTime();
+  
+  return (now - sessionEndTime) > windowMs;
 }
 
 /**

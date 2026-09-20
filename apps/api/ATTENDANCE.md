@@ -227,7 +227,7 @@ Response: 200 OK
 
 ### Get My Attendance (Student Self-service)
 ```
-GET /attendance/me/attendance
+GET /me/attendance
 Authorization: Student only
 
 Response: 200 OK
@@ -291,12 +291,16 @@ The module relies on these database integrity constraints:
    - `taken_by` → users
    - `updated_by` → users
 
-## Transaction Behavior
+## Bulk Attendance Write Behavior
 
-Bulk attendance marking uses D1 batch operations:
-- All validated entries are committed together
-- If validation fails, no entries are committed
-- Atomic upsert: inserts new or updates existing entries
+Bulk attendance marking validates all entries before committing any writes:
+
+1. **Pre-validation**: All students and their enrollments are validated before any database writes
+2. **Batch execution**: D1's `batch()` API is used to execute all insert/update statements
+3. **Atomicity**: D1 batch statements execute in order within a single HTTP request
+4. **Failure behavior**: If validation fails, no entries are written; if a batch statement fails, subsequent statements in that batch are not executed
+
+**Important**: D1 does not provide traditional ACID transaction guarantees or automatic rollback across all statements. The implementation validates comprehensively before writes to minimize partial-write scenarios.
 
 ## Not Implemented (Future Work)
 

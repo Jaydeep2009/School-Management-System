@@ -11,7 +11,8 @@
  * GET /students/:studentId/summary - Get student attendance summary
  * GET /students/:studentId/subject-wise - Get student subject-wise attendance
  * GET /classrooms/:classroomId/report - Get classroom attendance report
- * GET /me/attendance - Get student's own attendance
+ * 
+ * Note: Student self-service endpoint is at /me/attendance (in me.routes.ts)
  */
 
 import { Hono } from 'hono';
@@ -317,27 +318,6 @@ attendance.get('/classrooms/:classroomId/report', requireAuth, async (c) => {
       return c.json({ error: error.message }, error.statusCode as any);
     }
     const message = error instanceof Error ? error.message : 'Failed to get classroom report';
-    return c.json({ error: message }, 500);
-  }
-});
-
-/**
- * GET /me/attendance
- * Get student's own attendance
- * Authorization: Student only
- */
-attendance.get('/me/attendance', requireAuth, async (c) => {
-  try {
-    const tenant = getTenant(c);
-    
-    const data = await attendanceService.getMyAttendance(c.env.DB, tenant);
-    
-    return c.json({ data }, 200);
-  } catch (error) {
-    if (error instanceof AttendanceError) {
-      return c.json({ error: error.message }, error.statusCode as any);
-    }
-    const message = error instanceof Error ? error.message : 'Failed to get attendance';
     return c.json({ error: message }, 500);
   }
 });
