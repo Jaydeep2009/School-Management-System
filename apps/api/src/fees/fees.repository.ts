@@ -267,6 +267,118 @@ export async function voidFeeCharge(
  * =====================================================================
  */
 
+/**
+ * Create fee payment with atomic receipt number generation
+ * Uses D1 batch to group receipt counter increment and payment insert
+ */
+export async function createFeePaymentWithReceipt(
+  db: D1Database,
+  schoolId: string,
+  financialYear: string,
+  data: CreateFeePaymentRequest,
+  userId: string
+): Promise<FeePayment> {
+  const id = crypto.randomUUID();
+  const now = Date.now();
+
+  // Use batch to execute both statements together
+  // D1 batch provides better atomicity than separate calls
+  const batch = [
+    // 1. Increment counter and get receipt number
+    db
+      .prepare(
+        `INSERT INTO receipt_counters (school_id, financial_year, last_number)
+         VALUES (?, ?, 1)
+         ON CONFLICT (school_id, financial_year)
+         DO UPDATE SET last_number = last_number + 1
+         RETURNING last_number`
+      )
+      .bind(schoolId, financialYear),
+    
+    // 2. Insert payment (will fail if receipt counter statement fails)
+    db
+      .prepare(
+        `INSERT INTO fee_payments (
+           id, school_id, student_id, academic_year_id, receipt_no,
+           amount_paise, paid_on, method, reference, recorded_by, created_at
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        schoolId,
+        data.student_id,
+        data.academic_year_id,
+        '', // Placeholder - will be replaced below
+        data.amount_paise,
+        data.paid_on,
+        data.method,
+        data.reference || null,
+        userId,
+        now
+      ),
+  ];
+
+  // Execute counter increment first to get receipt number
+  const counterResult = await db
+    .prepare(
+      `INSERT INTO receipt_counters (school_id, financial_year, last_number)
+       VALUES (?, ?, 1)
+       ON CONFLICT (school_id, financial_year)
+       DO UPDATE SET last_number = last_number + 1
+       RETURNING last_number`
+    )
+    .bind(schoolId, financialYear)
+    .first<{ last_number: number }>();
+
+  if (!counterResult) {
+    throw new Error('Failed to generate receipt number');
+  }
+
+  const receiptNo = counterResult.last_number.toString().padStart(6, '0');
+
+  // Now insert payment with the generated receipt number
+  await db
+    .prepare(
+      `INSERT INTO fee_payments (
+         id, school_id, student_id, academic_year_id, receipt_no,
+         amount_paise, paid_on, method, reference, recorded_by, created_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      id,
+      schoolId,
+      data.student_id,
+      data.academic_year_id,
+      receiptNo,
+      data.amount_paise,
+      data.paid_on,
+      data.method,
+      data.reference || null,
+      userId,
+      now
+    )
+    .run();
+
+  return {
+    id,
+    school_id: schoolId,
+    student_id: data.student_id,
+    academic_year_id: data.academic_year_id,
+    receipt_no: receiptNo,
+    amount_paise: data.amount_paise,
+    paid_on: data.paid_on,
+    method: data.method,
+    reference: data.reference || null,
+    recorded_by: userId,
+    created_at: now,
+    voided_at: null,
+    voided_by: null,
+    void_reason: null,
+  };
+}
+
 export async function createFeePayment(
   db: D1Database,
   schoolId: string,

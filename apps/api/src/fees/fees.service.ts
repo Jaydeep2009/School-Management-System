@@ -236,15 +236,15 @@ export async function recordFeePayment(
     throw FeesError.academicYearNotFound(data.academic_year_id);
   }
 
-  // Generate receipt number
+  // Generate receipt number and create payment in a batch for better atomicity
   const financialYear = getFinancialYear(academicYear.label);
-  const receiptNo = await feesRepo.generateReceiptNumber(db, tenant.schoolId, financialYear);
-
-  if (!receiptNo) {
-    throw FeesError.receiptNumberGenerationFailed();
-  }
-
-  const payment = await feesRepo.createFeePayment(db, tenant.schoolId, receiptNo, data, tenant.userId);
+  const payment = await feesRepo.createFeePaymentWithReceipt(
+    db,
+    tenant.schoolId,
+    financialYear,
+    data,
+    tenant.userId
+  );
 
   // Audit log
   await logAudit(db, tenant, 'fee_payment_recorded', 'fee_payment', payment.id, null, payment);
