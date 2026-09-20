@@ -31,7 +31,10 @@ export type AuditAction =
   | 'teacher_changed'
   | 'enrollment_created'
   | 'enrollment_status_changed'
-  | 'enrollment_completed';
+  | 'enrollment_completed'
+  | 'marked_attendance'
+  | 'locked'
+  | 'unlocked';
 
 export type AuditEntity =
   | 'academic_year'
@@ -40,7 +43,8 @@ export type AuditEntity =
   | 'teaching_assignment'
   | 'enrollment'
   | 'teacher'
-  | 'student';
+  | 'student'
+  | 'attendance_session';
 
 export interface AuditLogEntry {
   id: string;

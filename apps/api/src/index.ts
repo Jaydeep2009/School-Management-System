@@ -11,6 +11,7 @@ import enrollmentRoutes from './academic/enrollment.routes';
 import teacherRoutes from './accounts/teacher.routes';
 import studentRoutes from './accounts/student.routes';
 import meRoutes from './accounts/me.routes';
+import attendanceRoutes from './attendance/attendance.routes';
 
 export type Env = {
   DB: D1Database;
@@ -33,6 +34,7 @@ app.route('/teaching-assignments', teachingAssignmentRoutes);
 app.route('/enrollments', enrollmentRoutes);
 app.route('/teachers', teacherRoutes);
 app.route('/students', studentRoutes);
+app.route('/attendance', attendanceRoutes);
 app.route('/me', meRoutes);
 
 // Default route
