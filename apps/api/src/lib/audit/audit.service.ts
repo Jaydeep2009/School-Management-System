@@ -67,7 +67,9 @@ export type AuditAction =
   | 'student_graduated'
   | 'student_left'
   | 'promotion_year_activation_started'
-  | 'promotion_year_activation_completed';
+  | 'promotion_year_activation_completed'
+  | 'teacher_profile_updated'
+  | 'student_profile_updated';
 
 export type AuditEntity =
   | 'academic_year'
