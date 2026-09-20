@@ -18,6 +18,7 @@ import { getRequestId } from '../lib/logging/request-id';
 interface AuthEnv {
   DB: D1Database;
   JWT_SECRET: string;
+  BUCKET: R2Bucket;
 }
 
 /**

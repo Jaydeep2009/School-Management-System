@@ -13,10 +13,12 @@ import studentRoutes from './accounts/student.routes';
 import meRoutes from './accounts/me.routes';
 import attendanceRoutes from './attendance/attendance.routes';
 import marksRoutes from './marks/marks.routes';
+import assignmentsRoutes from './assignments/assignments.routes';
 
 export type Env = {
   DB: D1Database;
   JWT_SECRET: string;
+  BUCKET: R2Bucket;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -37,6 +39,7 @@ app.route('/teachers', teacherRoutes);
 app.route('/students', studentRoutes);
 app.route('/attendance', attendanceRoutes);
 app.route('/marks', marksRoutes);
+app.route('/assignments', assignmentsRoutes);
 app.route('/me', meRoutes);
 
 // Default route
