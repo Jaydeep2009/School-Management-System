@@ -3,6 +3,11 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import healthRoutes from './routes/health';
 import authRoutes from './auth/auth.routes';
+import academicYearRoutes from './academic/academic-year.routes';
+import classroomRoutes from './academic/classroom.routes';
+import subjectRoutes from './academic/subject.routes';
+import teachingAssignmentRoutes from './academic/teaching-assignment.routes';
+import enrollmentRoutes from './academic/enrollment.routes';
 
 export type Env = {
   DB: D1Database;
@@ -18,6 +23,11 @@ app.use('*', cors());
 // Routes
 app.route('/health', healthRoutes);
 app.route('/auth', authRoutes);
+app.route('/academic-years', academicYearRoutes);
+app.route('/classrooms', classroomRoutes);
+app.route('/subjects', subjectRoutes);
+app.route('/teaching-assignments', teachingAssignmentRoutes);
+app.route('/enrollments', enrollmentRoutes);
 
 // Default route
 app.get('/', (c) => {
