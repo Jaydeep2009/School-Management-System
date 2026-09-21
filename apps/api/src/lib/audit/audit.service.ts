@@ -81,7 +81,13 @@ export type AuditAction =
   | 'timetable_entry_deleted'
   | 'import_previewed'
   | 'import_committed'
-  | 'import_cancelled';
+  | 'import_cancelled'
+  | 'school_created'
+  | 'school_updated'
+  | 'school_suspended'
+  | 'school_activated'
+  | 'school_archived'
+  | 'principal_created';
 
 export type AuditEntity =
   | 'academic_year'
@@ -108,7 +114,9 @@ export type AuditEntity =
   | 'fee-payments'
   | 'fee-charges'
   | 'promotion'
-  | 'timetable';
+  | 'timetable'
+  | 'school'
+  | 'user';
 
 export interface AuditLogEntry {
   id: string;

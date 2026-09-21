@@ -19,6 +19,7 @@ import promotionRoutes from './promotion/promotion.routes';
 import profilesRoutes from './profiles/profiles.routes';
 import timetableRoutes from './timetable/timetable.routes';
 import importsRoutes from './imports/imports.routes';
+import schoolsRoutes from './schools/schools.routes';
 
 export type Env = {
   DB: D1Database;
@@ -35,6 +36,7 @@ app.use('*', cors());
 // Routes
 app.route('/health', healthRoutes);
 app.route('/auth', authRoutes);
+app.route('/schools', schoolsRoutes);
 app.route('/academic-years', academicYearRoutes);
 app.route('/classrooms', classroomRoutes);
 app.route('/subjects', subjectRoutes);

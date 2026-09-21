@@ -101,6 +101,27 @@ export async function requireAuth(
       });
       return c.json({ error: 'Unauthorized' }, 401);
     }
+
+    // Verify school is active (skip for super_admin)
+    // Note: super_admin role doesn't exist in users table - this check is defensive
+    // The actual super_admin authentication happens outside this middleware
+    const userRoleStr = user.role as string;
+    if (userRoleStr !== 'super_admin') {
+      const school = await c.env.DB
+        .prepare('SELECT status FROM schools WHERE id = ? LIMIT 1')
+        .bind(user.school_id)
+        .first<{ status: string }>();
+
+      if (!school || school.status !== 'active') {
+        logger.warn(AuthEvents.ACCESS_DENIED, {
+          requestId,
+          userId: user.id,
+          schoolId: user.school_id,
+          reasonCode: 'SCHOOL_NOT_ACTIVE',
+        });
+        return c.json({ error: 'School access suspended' }, 403);
+      }
+    }
     
     // Verify session still valid
     const session = await authRepo.findSessionById(c.env.DB, payload.sessionId);
