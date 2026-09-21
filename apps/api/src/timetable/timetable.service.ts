@@ -198,8 +198,16 @@ export async function publishTimetable(
     throw TimetableError.invalidStatus(timetable.status, 'draft');
   }
 
-  await validateTimetableForPublish(db, timetableId, tenant.schoolId);
+  // VALIDATE FIRST - before archiving anything
+  await validateTimetableForPublish(
+    db,
+    timetableId,
+    tenant.schoolId,
+    timetable.classroom_id,
+    timetable.academic_year_id
+  );
 
+  // Only after validation succeeds, archive the old published version
   const currentPublished = await timetableRepo.findPublishedTimetable(
     db,
     tenant.schoolId,
@@ -246,7 +254,9 @@ export async function archiveTimetable(
 async function validateTimetableForPublish(
   db: D1Database,
   timetableId: string,
-  schoolId: string
+  schoolId: string,
+  classroomId: string,
+  academicYearId: string
 ): Promise<void> {
   const entries = await timetableRepo.listTimetableEntries(db, timetableId);
 
@@ -255,12 +265,14 @@ async function validateTimetableForPublish(
   }
 
   for (const entry of entries) {
+    // Exclude conflicts from the same classroom/year being replaced
     const conflicts = await timetableRepo.findTeacherConflicts(
       db,
       entry.teacher_id,
       entry.day_of_week,
       entry.period_no,
-      timetableId
+      classroomId,
+      academicYearId
     );
 
     if (conflicts.length > 0) {

@@ -434,10 +434,20 @@ Validation errors prevent commit but allow preview creation.
 
 ### Database Errors
 
-Commit operation uses transaction:
-- Rollback on any error
-- All timetables/entries created atomically
-- Import status updated atomically
+Commit operation uses multiple sequential database operations:
+- All timetables/entries created sequentially
+- Import status updated after entity creation
+- If any operation fails, the import status remains "committing" or is set to "failed"
+- D1 does not support multi-statement transactions with rollback
+
+**Partial Commit Risk:**
+If an error occurs mid-commit, some timetables may be created while others fail. The import job status will reflect the failure, and the user can:
+- Review partially created timetables
+- Delete invalid drafts
+- Fix data and retry import
+
+**Future Enhancement:**
+Full atomic commits with rollback may be added when D1 supports proper transaction semantics.
 
 ---
 

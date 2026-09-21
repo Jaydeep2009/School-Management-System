@@ -435,13 +435,15 @@ export async function deleteTimetableEntry(
 
 /**
  * Find teacher conflicts for a time slot
+ * Excludes conflicts from the same classroom+academic_year (same timetable being replaced)
  */
 export async function findTeacherConflicts(
   db: D1Database,
   teacherId: string,
   dayOfWeek: DayOfWeek,
   periodNo: number,
-  excludeTimetableId?: string
+  excludeClassroomId?: string,
+  excludeAcademicYearId?: string
 ): Promise<TimetableEntryWithDetails[]> {
   let query = `
     SELECT 
@@ -473,9 +475,10 @@ export async function findTeacherConflicts(
 
   const bindings: unknown[] = [teacherId, dayOfWeek, periodNo];
 
-  if (excludeTimetableId) {
-    query += ` AND te.timetable_id <> ?`;
-    bindings.push(excludeTimetableId);
+  // Exclude conflicts from the same classroom/year (version being replaced)
+  if (excludeClassroomId && excludeAcademicYearId) {
+    query += ` AND NOT (t.classroom_id = ? AND t.academic_year_id = ?)`;
+    bindings.push(excludeClassroomId, excludeAcademicYearId);
   }
 
   const result = await db
