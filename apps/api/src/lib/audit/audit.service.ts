@@ -69,7 +69,19 @@ export type AuditAction =
   | 'promotion_year_activation_started'
   | 'promotion_year_activation_completed'
   | 'teacher_profile_updated'
-  | 'student_profile_updated';
+  | 'student_profile_updated'
+  | 'timetable_created'
+  | 'timetable_updated'
+  | 'timetable_deleted'
+  | 'timetable_version_created'
+  | 'timetable_published'
+  | 'timetable_archived'
+  | 'timetable_entry_created'
+  | 'timetable_entry_updated'
+  | 'timetable_entry_deleted'
+  | 'import_previewed'
+  | 'import_committed'
+  | 'import_cancelled';
 
 export type AuditEntity =
   | 'academic_year'
@@ -87,7 +99,16 @@ export type AuditEntity =
   | 'fee_charge'
   | 'fee_payment'
   | 'promotion_batch'
-  | 'promotion_item';
+  | 'promotion_item'
+  | 'timetable'
+  | 'timetable_entry'
+  | 'students'
+  | 'attendance'
+  | 'marks'
+  | 'fee-payments'
+  | 'fee-charges'
+  | 'promotion'
+  | 'timetable';
 
 export interface AuditLogEntry {
   id: string;

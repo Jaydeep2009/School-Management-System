@@ -17,6 +17,8 @@ import assignmentsRoutes from './assignments/assignments.routes';
 import feesRoutes from './fees/fees.routes';
 import promotionRoutes from './promotion/promotion.routes';
 import profilesRoutes from './profiles/profiles.routes';
+import timetableRoutes from './timetable/timetable.routes';
+import importsRoutes from './imports/imports.routes';
 
 export type Env = {
   DB: D1Database;
@@ -47,6 +49,8 @@ app.route('/marks', marksRoutes);
 app.route('/assignments', assignmentsRoutes);
 app.route('/fees', feesRoutes);
 app.route('/promotions', promotionRoutes);
+app.route('/timetables', timetableRoutes);
+app.route('/imports', importsRoutes);
 app.route('/birthdays', profilesRoutes); // Birthday operations
 app.route('/me', meRoutes);
 
