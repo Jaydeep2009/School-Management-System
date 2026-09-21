@@ -29,21 +29,6 @@ function generateId(): string {
 }
 
 /**
- * Extract MM-DD from date string for birthday tracking
- */
-function extractMonthDay(dateString: string | null | undefined): string | null {
-  if (!dateString) return null;
-  try {
-    const date = new Date(dateString);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${month}-${day}`;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Parse school settings JSON
  */
 function parseSchoolSettings(school: School): SchoolWithSettings {
@@ -319,7 +304,7 @@ export async function createPrincipal(
     throw SchoolError.principalAlreadyExists(schoolId);
   }
 
-  // Generate codes - use same sequence for login ID
+  // Generate login ID sequence
   const sequence = await getNextPrincipalSequence(db, schoolId);
   
   // Get school code for login ID
@@ -345,7 +330,7 @@ export async function createPrincipal(
   const now = Date.now();
 
   try {
-    // Create user record
+    // Create user record ONLY (Principal does NOT have a profile table)
     await db
       .prepare(
         `INSERT INTO users (
@@ -366,36 +351,14 @@ export async function createPrincipal(
       )
       .run();
 
-    // Create teacher profile (Principal uses teacher_profiles table)
-    await db
-      .prepare(
-        `INSERT INTO teacher_profiles (
-          user_id, school_id, employee_code, first_name, middle_name, last_name,
-          phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
-      )
-      .bind(
-        userId,
-        schoolId,
-        `P${sequence.toString().padStart(6, '0')}`, // Principal employee code
-        data.first_name,
-        data.middle_name || null,
-        data.last_name,
-        data.phone || null,
-        data.date_of_birth || null,
-        extractMonthDay(data.date_of_birth),
-        data.joining_date || null,
-        now,
-        now
-      )
-      .run();
-
     await logAudit(db, tenant as any, 'principal_created', 'user', userId, null, {
       user_id: userId,
       login_id: loginId,
       role: 'principal',
       school_id: schoolId,
+      full_name: data.full_name,
+      date_of_birth: data.date_of_birth,
+      gender: data.gender,
     });
 
     // SECURITY: Temporary password returned ONCE, never logged

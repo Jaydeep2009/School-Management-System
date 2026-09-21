@@ -50,14 +50,14 @@ export const updateSchoolSchema = z.object({
 
 /**
  * Create Principal schema
+ * 
+ * Principal accounts are user-only records (no profile table).
+ * They need minimal information for account creation.
  */
 export const createPrincipalSchema = z.object({
-  first_name: z.string().min(1, 'First name is required').max(100, 'First name too long'),
-  middle_name: z.string().max(100, 'Middle name too long').optional(),
-  last_name: z.string().min(1, 'Last name is required').max(100, 'Last name too long'),
-  phone: z.string().max(20, 'Phone number too long').optional(),
-  date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
-  joining_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
+  full_name: z.string().min(2, 'Full name must be at least 2 characters').max(100, 'Full name too long'),
+  date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  gender: z.enum(['male', 'female', 'other'], { errorMap: () => ({ message: 'Gender must be male, female, or other' }) }),
 });
 
 /**

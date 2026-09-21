@@ -60,14 +60,14 @@ export interface UpdateSchoolRequest {
 
 /**
  * Create Principal request
+ * 
+ * Principal accounts only need basic user fields.
+ * They do NOT create a teacher_profile or student_profile.
  */
 export interface CreatePrincipalRequest {
-  first_name: string;
-  middle_name?: string;
-  last_name: string;
-  phone?: string;
-  date_of_birth?: string;
-  joining_date?: string;
+  full_name: string;
+  date_of_birth: string;
+  gender: 'male' | 'female' | 'other';
 }
 
 /**
