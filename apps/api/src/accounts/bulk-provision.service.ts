@@ -192,9 +192,10 @@ export async function bulkProvisionStudents(
 
   try {
     for (const studentData of data) {
-      // Generate codes
-      const studentCode = await codeGen.generateStudentCode(db, schoolId);
-      const loginId = await codeGen.generateLoginId(db, schoolId, 'student');
+      // Generate codes - use same sequence for both student code and login ID
+      const sequence = await codeGen.getNextStudentSequence(db, schoolId);
+      const studentCode = codeGen.formatStudentCode(sequence);
+      const loginId = await codeGen.formatLoginId(db, schoolId, 'student', sequence);
       
       // Generate temporary password
       const temporaryPassword = codeGen.generateTemporaryPassword();
@@ -205,7 +206,6 @@ export async function bulkProvisionStudents(
       activationExpiresAt.setDate(activationExpiresAt.getDate() + 7);
 
       const userId = generateId();
-      const profileId = generateId();
 
       // Create user record
       await db
@@ -232,9 +232,9 @@ export async function bulkProvisionStudents(
         )
         .run();
 
-      // Create student profile
+      // Create student profile (user_id is the primary key)
       await studentRepo.create(db, {
-        id: profileId,
+        id: userId, // user_id is the PK, but type expects id
         user_id: userId,
         school_id: schoolId,
         student_code: studentCode,
@@ -250,11 +250,12 @@ export async function bulkProvisionStudents(
         address: studentData.address || null,
         parent_name: studentData.parent_name || null,
         parent_phone: studentData.parent_phone || null,
+        parent_email: null,
         status: 'active',
       });
 
       results.push({
-        profile_id: profileId,
+        profile_id: userId, // user_id is the profile primary key
         user_id: userId,
         login_id: loginId,
         employee_code: studentCode, // Using employee_code field for consistency

@@ -77,6 +77,7 @@ export interface StudentProfile {
   address: string | null;
   parent_name: string | null;
   parent_phone: string | null;
+  parent_email: string | null;
   status: StudentStatus;
   created_at: string;
   updated_at: string;
@@ -94,6 +95,7 @@ export interface CreateStudentRequest {
   address?: string;
   parent_name?: string;
   parent_phone?: string;
+  parent_email?: string;
 }
 
 export interface UpdateStudentRequest {

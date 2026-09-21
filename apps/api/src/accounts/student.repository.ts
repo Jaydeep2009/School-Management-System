@@ -18,11 +18,11 @@ export async function findById(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
-              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
-       WHERE id = ?
+       WHERE user_id = ?
          AND school_id = ?
        LIMIT 1`
     )
@@ -43,8 +43,8 @@ export async function findByUserId(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
-              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
        WHERE user_id = ?
@@ -68,8 +68,8 @@ export async function findByStudentCode(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
-              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
        WHERE student_code = ?
@@ -93,8 +93,8 @@ export async function findByAdmissionNumber(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
-              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
        WHERE admission_number = ?
@@ -119,8 +119,8 @@ export async function findAll(
     search?: string;
   }
 ): Promise<StudentProfile[]> {
-  let query = `SELECT id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
-                      gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone,
+  let query = `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+                      gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
                       status, created_at, updated_at
                FROM student_profiles
                WHERE school_id = ?`;
@@ -176,6 +176,7 @@ export async function create(
     address: string | null;
     parent_name: string | null;
     parent_phone: string | null;
+    parent_email: string | null;
     status: StudentStatus;
   }
 ): Promise<StudentProfile> {
@@ -184,15 +185,14 @@ export async function create(
   await db
     .prepare(
       `INSERT INTO student_profiles (
-        id, user_id, school_id, student_code, admission_number,
+        user_id, school_id, student_code, admission_number,
         first_name, middle_name, last_name, gender, date_of_birth, dob_md,
-        phone, email, address, parent_name, parent_phone,
+        phone, email, address, parent_name, parent_phone, parent_email,
         status, created_at, updated_at
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      data.id,
       data.user_id,
       data.school_id,
       data.student_code,
@@ -208,6 +208,7 @@ export async function create(
       data.address,
       data.parent_name,
       data.parent_phone,
+      data.parent_email,
       data.status,
       now,
       now
@@ -215,7 +216,7 @@ export async function create(
     .run();
 
   return {
-    id: data.id,
+    id: data.user_id, // user_id is the PK
     user_id: data.user_id,
     school_id: data.school_id,
     student_code: data.student_code,
@@ -231,6 +232,7 @@ export async function create(
     address: data.address,
     parent_name: data.parent_name,
     parent_phone: data.parent_phone,
+    parent_email: data.parent_email,
     status: data.status,
     created_at: now,
     updated_at: now,
@@ -342,7 +344,7 @@ export async function update(
     .prepare(
       `UPDATE student_profiles
        SET ${updates.join(', ')}
-       WHERE id = ?
+       WHERE user_id = ?
          AND school_id = ?`
     )
     .bind(...bindings)
@@ -394,7 +396,7 @@ export async function findByIdWithUser(
   const result = await db
     .prepare(
       `SELECT 
-        sp.id as profile_id,
+        sp.user_id as profile_id,
         sp.user_id,
         sp.school_id,
         sp.student_code,
@@ -410,6 +412,7 @@ export async function findByIdWithUser(
         sp.address,
         sp.parent_name,
         sp.parent_phone,
+        sp.parent_email,
         sp.status as profile_status,
         sp.created_at as profile_created_at,
         sp.updated_at as profile_updated_at,
@@ -420,7 +423,7 @@ export async function findByIdWithUser(
         u.must_change_password
        FROM student_profiles sp
        INNER JOIN users u ON sp.user_id = u.id
-       WHERE sp.id = ?
+       WHERE sp.user_id = ?
          AND sp.school_id = ?
        LIMIT 1`
     )
@@ -449,6 +452,7 @@ export async function findByIdWithUser(
       address: result.address,
       parent_name: result.parent_name,
       parent_phone: result.parent_phone,
+      parent_email: result.parent_email,
       status: result.profile_status,
       created_at: result.profile_created_at,
       updated_at: result.profile_updated_at,

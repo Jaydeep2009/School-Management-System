@@ -18,10 +18,10 @@ export async function findById(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
               phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
        FROM teacher_profiles
-       WHERE id = ?
+       WHERE user_id = ?
          AND school_id = ?
        LIMIT 1`
     )
@@ -42,7 +42,7 @@ export async function findByUserId(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
               phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
        FROM teacher_profiles
        WHERE user_id = ?
@@ -66,7 +66,7 @@ export async function findByEmployeeCode(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
               phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
        FROM teacher_profiles
        WHERE employee_code = ?
@@ -91,7 +91,7 @@ export async function findAll(
     search?: string;
   }
 ): Promise<TeacherProfile[]> {
-  let query = `SELECT id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+  let query = `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
                       phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
                FROM teacher_profiles
                WHERE school_id = ?`;
@@ -149,13 +149,12 @@ export async function create(
   await db
     .prepare(
       `INSERT INTO teacher_profiles (
-        id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+        user_id, school_id, employee_code, first_name, middle_name, last_name,
         phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      data.id,
       data.user_id,
       data.school_id,
       data.employee_code,
@@ -265,7 +264,7 @@ export async function update(
     .prepare(
       `UPDATE teacher_profiles
        SET ${updates.join(', ')}
-       WHERE id = ?
+       WHERE user_id = ?
          AND school_id = ?`
     )
     .bind(...bindings)
@@ -317,7 +316,7 @@ export async function findByIdWithUser(
   const result = await db
     .prepare(
       `SELECT 
-        tp.id as profile_id,
+        tp.user_id as profile_id,
         tp.user_id,
         tp.school_id,
         tp.employee_code,
@@ -338,7 +337,7 @@ export async function findByIdWithUser(
         u.must_change_password
        FROM teacher_profiles tp
        INNER JOIN users u ON tp.user_id = u.id
-       WHERE tp.id = ?
+       WHERE tp.user_id = ?
          AND tp.school_id = ?
        LIMIT 1`
     )

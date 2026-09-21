@@ -25,7 +25,67 @@ function generateId(): string {
 }
 
 /**
- * Generate the next employee code for a teacher
+ * Get next teacher sequence number (increments counter)
+ */
+export async function getNextTeacherSequence(
+  db: D1Database,
+  schoolId: string
+): Promise<number> {
+  return await getNextSequence(db, schoolId, 'teacher');
+}
+
+/**
+ * Get next student sequence number (increments counter)
+ */
+export async function getNextStudentSequence(
+  db: D1Database,
+  schoolId: string
+): Promise<number> {
+  return await getNextSequence(db, schoolId, 'student');
+}
+
+/**
+ * Format employee code from sequence number
+ * Format: T000001
+ */
+export function formatEmployeeCode(sequence: number): string {
+  return `T${sequence.toString().padStart(6, '0')}`;
+}
+
+/**
+ * Format student code from sequence number
+ * Format: S000001
+ */
+export function formatStudentCode(sequence: number): string {
+  return `S${sequence.toString().padStart(6, '0')}`;
+}
+
+/**
+ * Format login ID from sequence number
+ * Format: <SCHOOLCODE>-<ROLELETTER>-<6-digit sequence>
+ */
+export async function formatLoginId(
+  db: D1Database,
+  schoolId: string,
+  role: 'teacher' | 'student',
+  sequence: number
+): Promise<string> {
+  // Get school code
+  const school = await db
+    .prepare('SELECT code FROM schools WHERE id = ? LIMIT 1')
+    .bind(schoolId)
+    .first<{ code: string }>();
+  
+  if (!school) {
+    throw new Error('School not found');
+  }
+
+  const roleLetter = role === 'teacher' ? 'T' : 'S';
+  return `${school.code}-${roleLetter}-${sequence.toString().padStart(6, '0')}`;
+}
+
+/**
+ * Generate the next employee code for a teacher (DEPRECATED - use getNextTeacherSequence + formatEmployeeCode)
  * Format: T000001
  */
 export async function generateEmployeeCode(
@@ -63,9 +123,9 @@ export async function generateLoginId(
 ): Promise<string> {
   // Get school code
   const school = await db
-    .prepare('SELECT school_code FROM schools WHERE id = ? LIMIT 1')
+    .prepare('SELECT code FROM schools WHERE id = ? LIMIT 1')
     .bind(schoolId)
-    .first<{ school_code: string }>();
+    .first<{ code: string }>();
   
   if (!school) {
     throw new Error('School not found');
@@ -74,7 +134,7 @@ export async function generateLoginId(
   const sequence = await getNextSequence(db, schoolId, role);
   const roleLetter = role === 'teacher' ? 'T' : 'S';
   
-  return `${school.school_code}-${roleLetter}-${sequence.toString().padStart(6, '0')}`;
+  return `${school.code}-${roleLetter}-${sequence.toString().padStart(6, '0')}`;
 }
 
 /**
@@ -91,30 +151,26 @@ async function getNextSequence(
   const result = await db
     .prepare(
       `UPDATE code_counters
-       SET current_value = current_value + 1,
-           updated_at = ?
+       SET last_number = last_number + 1
        WHERE school_id = ?
-         AND code_type = ?
-       RETURNING current_value`
+         AND kind = ?
+       RETURNING last_number`
     )
-    .bind(new Date().toISOString(), schoolId, codeType)
-    .first<{ current_value: number }>();
+    .bind(schoolId, codeType)
+    .first<{ last_number: number }>();
 
   if (result) {
-    return result.current_value;
+    return result.last_number;
   }
 
-  // Counter doesn't exist, create it
-  const now = new Date().toISOString();
-  const id = generateId();
-  
+  // Counter doesn't exist, create it  
   try {
     await db
       .prepare(
-        `INSERT INTO code_counters (id, school_id, code_type, current_value, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`
+        `INSERT INTO code_counters (school_id, kind, last_number)
+         VALUES (?, ?, ?)`
       )
-      .bind(id, schoolId, codeType, 1, now, now)
+      .bind(schoolId, codeType, 1)
       .run();
     
     return 1;
@@ -123,20 +179,19 @@ async function getNextSequence(
     const retryResult = await db
       .prepare(
         `UPDATE code_counters
-         SET current_value = current_value + 1,
-             updated_at = ?
+         SET last_number = last_number + 1
          WHERE school_id = ?
-           AND code_type = ?
-         RETURNING current_value`
+           AND kind = ?
+         RETURNING last_number`
       )
-      .bind(new Date().toISOString(), schoolId, codeType)
-      .first<{ current_value: number }>();
+      .bind(schoolId, codeType)
+      .first<{ last_number: number}>();
     
     if (retryResult) {
-      return retryResult.current_value;
+      return retryResult.last_number;
     }
-    
-    throw new Error('Failed to generate code sequence');
+
+    throw new Error('Failed to generate sequence number');
   }
 }
 

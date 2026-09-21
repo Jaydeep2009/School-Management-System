@@ -160,9 +160,10 @@ export async function create(
     );
   }
 
-  // Generate codes
-  const studentCode = await codeGen.generateStudentCode(db, schoolId);
-  const loginId = await codeGen.generateLoginId(db, schoolId, 'student');
+  // Generate codes - use same sequence for both student code and login ID
+  const sequence = await codeGen.getNextStudentSequence(db, schoolId);
+  const studentCode = codeGen.formatStudentCode(sequence);
+  const loginId = await codeGen.formatLoginId(db, schoolId, 'student', sequence);
   
   // Check if student code already exists (should never happen with atomic counter)
   const existing = await studentRepo.findByStudentCode(db, studentCode, schoolId);
@@ -182,7 +183,6 @@ export async function create(
   activationExpiresAt.setDate(activationExpiresAt.getDate() + 7);
 
   const userId = generateId();
-  const profileId = generateId();
   const now = new Date().toISOString();
 
   try {
@@ -211,9 +211,9 @@ export async function create(
       )
       .run();
 
-    // Create student profile
+    // Create student profile (user_id is the primary key)
     await studentRepo.create(db, {
-      id: profileId,
+      id: userId, // user_id is the PK, but type expects id
       user_id: userId,
       school_id: schoolId,
       student_code: studentCode,
@@ -229,15 +229,16 @@ export async function create(
       address: data.address || null,
       parent_name: data.parent_name || null,
       parent_phone: data.parent_phone || null,
+      parent_email: data.parent_email || null,
       status: 'active',
     });
 
     // SECURITY: Temporary password is returned ONCE and never logged
     return {
-      profile_id: profileId,
+      profile_id: userId, // user_id is the profile primary key
       user_id: userId,
       login_id: loginId,
-      employee_code: studentCode, // Using employee_code field for consistency
+      student_code: studentCode,
       temporary_password: temporaryPassword,
     };
   } catch (error) {
@@ -355,26 +356,73 @@ export async function reactivate(
   db: D1Database,
   id: string,
   schoolId: string
-): Promise<StudentProfile> {
+): Promise<PasswordResetResponse> {
   const student = await getById(db, id, schoolId);
 
-  // Update user status
+  // Get user login_id
+  const user = await db
+    .prepare('SELECT login_id FROM users WHERE id = ? AND school_id = ? LIMIT 1')
+    .bind(student.user_id, schoolId)
+    .first<{ login_id: string }>();
+
+  if (!user) {
+    throw new StudentError(
+      'User not found',
+      'USER_NOT_FOUND',
+      404
+    );
+  }
+
+  // Generate new temporary password
+  const temporaryPassword = codeGen.generateTemporaryPassword();
+  const activationHash = await hashPassword(temporaryPassword);
+  
+  // Calculate activation expiry (7 days)
+  const activationExpiresAt = new Date();
+  activationExpiresAt.setDate(activationExpiresAt.getDate() + 7);
+
+  // Update user status, set activation hash, increment token_version, invalidate sessions
   await db
     .prepare(
       `UPDATE users
        SET status = 'active',
+           activation_hash = ?,
+           activation_expires_at = ?,
            must_change_password = 1,
+           token_version = token_version + 1,
            updated_at = ?
        WHERE id = ?
          AND school_id = ?`
     )
-    .bind(new Date().toISOString(), student.user_id, schoolId)
+    .bind(
+      activationHash,
+      activationExpiresAt.toISOString(),
+      new Date().toISOString(),
+      student.user_id,
+      schoolId
+    )
     .run();
 
   // Update profile status
   await studentRepo.update(db, id, schoolId, { status: 'active' });
 
-  return getById(db, id, schoolId);
+  // Revoke all sessions
+  await db
+    .prepare(
+      `UPDATE sessions
+       SET revoked_at = ?
+       WHERE user_id = ?
+         AND revoked_at IS NULL`
+    )
+    .bind(new Date().toISOString(), student.user_id)
+    .run();
+
+  // SECURITY: Temporary password is returned ONCE and never logged
+  return {
+    user_id: student.user_id,
+    login_id: user.login_id,
+    temporary_password: temporaryPassword,
+  };
 }
 
 /**
