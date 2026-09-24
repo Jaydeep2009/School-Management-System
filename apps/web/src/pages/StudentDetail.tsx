@@ -28,6 +28,7 @@ interface StudentDetail {
   address?: string;
   parent_name?: string;
   parent_phone?: string;
+  parent_email?: string;
   status: string;
   user: {
     id: string;
@@ -209,6 +210,7 @@ export function StudentDetail() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <InfoField label="Parent Name" value={student.parent_name || '—'} />
                 <InfoField label="Parent Phone" value={student.parent_phone || '—'} />
+                <InfoField label="Parent Email" value={student.parent_email || '—'} />
               </div>
             </div>
           </Card>

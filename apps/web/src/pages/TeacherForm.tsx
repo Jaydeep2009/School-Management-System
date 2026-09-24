@@ -10,7 +10,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Copy, Check } from 'lucide-react';
 
 interface TeacherFormData {
   first_name: string;
@@ -39,6 +39,9 @@ export function TeacherForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [credentials, setCredentials] = useState<{ login_id: string; temporary_password: string; profile_id: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (isEditMode) {
@@ -103,22 +106,33 @@ export function TeacherForm() {
       } else {
         // Create new teacher
         const response = await apiService.createTeacher(formData);
-        const credentials = response.data;
+        const createdCredentials = response.data;
         
-        // Show credentials dialog
-        alert(
-          `Teacher created successfully!\n\n` +
-          `Login ID: ${credentials.login_id}\n` +
-          `Temporary Password: ${credentials.temporary_password}\n\n` +
-          `Please save these credentials and share with the teacher.`
-        );
-        
-        navigate(`/teachers/${credentials.profile_id}`);
+        // Show credentials modal
+        setCredentials(createdCredentials);
+        setShowCredentials(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save teacher');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleCloseCredentials = () => {
+    setShowCredentials(false);
+    if (credentials) {
+      navigate(`/teachers/${credentials.profile_id}`);
     }
   };
 
@@ -139,6 +153,118 @@ export function TeacherForm() {
   return (
     <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
       <div style={{ padding: '32px', maxWidth: '800px', margin: '0 auto' }}>
+        {/* Credentials Modal */}
+        {showCredentials && credentials && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '32px',
+              maxWidth: '500px',
+              width: '90%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+                ✅ Teacher Created Successfully
+              </h2>
+              <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
+                Save these credentials and share them with the teacher. They will need to change their password on first login.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Login ID */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#64748b', marginBottom: '6px' }}>
+                    Login ID
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={credentials.login_id}
+                      readOnly
+                      style={{
+                        flex: 1,
+                        padding: '10px 12px',
+                        fontSize: '14px',
+                        fontFamily: 'monospace',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        background: '#f8fafc',
+                      }}
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={() => copyToClipboard(credentials.login_id, 'loginId')}
+                      style={{ padding: '10px 16px' }}
+                    >
+                      {copiedField === 'loginId' ? <Check size={16} /> : <Copy size={16} />}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Temporary Password */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#64748b', marginBottom: '6px' }}>
+                    Temporary Password
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={credentials.temporary_password}
+                      readOnly
+                      style={{
+                        flex: 1,
+                        padding: '10px 12px',
+                        fontSize: '14px',
+                        fontFamily: 'monospace',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        background: '#f8fafc',
+                      }}
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={() => copyToClipboard(credentials.temporary_password, 'password')}
+                      style={{ padding: '10px 16px' }}
+                    >
+                      {copiedField === 'password' ? <Check size={16} /> : <Copy size={16} />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                marginTop: '24px',
+                padding: '12px',
+                background: '#fef3c7',
+                border: '1px solid #fde68a',
+                borderRadius: '6px',
+              }}>
+                <p style={{ fontSize: '13px', color: '#92400e', margin: 0 }}>
+                  ⚠️ <strong>Important:</strong> These credentials will not be shown again. Make sure to save them before closing this window.
+                </p>
+              </div>
+
+              <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+                <Button onClick={handleCloseCredentials}>
+                  I've Saved the Credentials
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Button variant="secondary" onClick={() => navigate('/teachers')}>
             <ArrowLeft size={16} />
