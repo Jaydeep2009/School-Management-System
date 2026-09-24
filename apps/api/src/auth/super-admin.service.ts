@@ -198,19 +198,21 @@ export async function verifySuperAdminToken(
     }
     
     // Validate token version against current configuration
+    // For simple password auth (when SUPER_ADMIN_PASSWORD is set),
+    // token version check is optional
     const configuredVersion = env.SUPER_ADMIN_TOKEN_VERSION?.trim();
-    if (!configuredVersion) {
-      throw new Error('Super Admin token version not configured');
+    if (configuredVersion) {
+      // Token version check enabled
+      const currentVersion = parseInt(configuredVersion, 10);
+      if (isNaN(currentVersion)) {
+        throw new Error('Super Admin token version invalid');
+      }
+      
+      if (payload.tokenVersion !== currentVersion) {
+        throw new Error('Super Admin token version mismatch');
+      }
     }
-    
-    const currentVersion = parseInt(configuredVersion, 10);
-    if (isNaN(currentVersion)) {
-      throw new Error('Super Admin token version invalid');
-    }
-    
-    if (payload.tokenVersion !== currentVersion) {
-      throw new Error('Super Admin token version mismatch');
-    }
+    // If no version configured, skip version check (simple auth mode)
     
     // Return Super Admin context
     return {
