@@ -158,12 +158,16 @@ export function Students() {
       console.log('Uploading file:', importFile.name);
       const response = await apiService.previewStudentsImport(importFile, {});
       console.log('Preview response:', response);
+      console.log('Preview response.data:', response.data);
+      console.log('Total rows:', response.data?.total_rows);
+      console.log('Valid rows:', response.data?.valid_rows);
       
       if (!response || !response.data) {
         throw new Error('Invalid response from server');
       }
       
       setImportPreview(response.data);
+      console.log('Import preview set to:', response.data);
       setImportStep('preview');
     } catch (err) {
       console.error('Import error:', err);
@@ -845,6 +849,7 @@ export function Students() {
                 {/* Step 3: Preview Results */}
                 {importStep === 'preview' && importPreview && (
                   <div style={{ padding: '32px' }}>
+                    {console.log('Rendering preview with:', importPreview)}
                     <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
                       Step 3: Preview Results
                     </h4>
