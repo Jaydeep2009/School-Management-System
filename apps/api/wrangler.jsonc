@@ -1,51 +1,46 @@
 {
-  "name": "sms-api",
-  "main": "src/index.ts",
-  "compatibility_date": "2024-01-15",
-  "compatibility_flags": ["nodejs_compat"],
-  
-  // D1 Database binding
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "sms-db",
-      "database_id": "local-db",
-      "preview_database_id": "local-db"
-    }
-  ],
-
-  // R2 Storage binding (for assignment attachments)
-  "r2_buckets": [
-    {
-      "binding": "BUCKET",
-      "bucket_name": "sms-attachments",
-      "preview_bucket_name": "sms-attachments-preview"
-    }
-  ],
-
-  // Development settings
-  "observability": {
-    "enabled": true
-  },
-
-  // Build configuration
-  "build": {
-    "command": "echo 'Building...'"
-  },
-
-  // Development environment variables (local only)
-  // For production, set these as secrets using: wrangler secret put JWT_SECRET
-  "vars": {
-    "JWT_SECRET": "dev-secret-change-in-production-use-wrangler-secret-put"
-  },
-
-  // Cron triggers for scheduled jobs
-  "triggers": {
-    "crons": [
-      "0 1 * * *",  // Attendance stats - Daily at 1:00 AM UTC
-      "0 2 * * *",  // Marks stats - Daily at 2:00 AM UTC
-      "0 6 * * *",  // Birthday digest - Daily at 6:00 AM UTC
-      "0 8 * * *"   // Fee reminders - Daily at 8:00 AM UTC
-    ]
-  }
+	"name": "sms-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-01-15",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// D1 Database binding
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "sms-production-db",
+			"database_id": "b382694c-31cd-4165-b73b-738bdf9e241d",
+			"preview_database_id": "b382694c-31cd-4165-b73b-738bdf9e241d"
+		},
+		{
+			"binding": "sms_production_db",
+			"database_name": "sms-production-db",
+			"database_id": "b382694c-31cd-4165-b73b-738bdf9e241d",
+			"remote": true
+		}
+	],
+	// Development settings
+	"observability": {
+		"enabled": true
+	},
+	// Build configuration
+	"build": {
+		"command": "echo 'Building...'"
+	},
+	// Development environment variables (local only)
+	// For production, JWT_SECRET is set as a secret using: wrangler secret put JWT_SECRET
+	// Uncomment the vars section below for local development only
+	// "vars": {
+	// 	"JWT_SECRET": "dev-secret-change-in-production-use-wrangler-secret-put"
+	// },
+	// Cron triggers for scheduled jobs
+	"triggers": {
+		"crons": [
+			"0 1 * * *", // Attendance stats - Daily at 1:00 AM UTC
+			"0 2 * * *", // Marks stats - Daily at 2:00 AM UTC
+			"0 6 * * *", // Birthday digest - Daily at 6:00 AM UTC
+			"0 8 * * *" // Fee reminders - Daily at 8:00 AM UTC
+		]
+	}
 }
