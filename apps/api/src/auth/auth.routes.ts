@@ -207,9 +207,46 @@ auth.post(
       const requestId = getRequestIdFromContext(c);
       const body = c.req.valid('json') as SuperAdminLoginRequest;
       
-      const response = await superAdminService.loginSuperAdmin(body, requestId, c.env);
+      // Try complex auth first (with LOGIN_ID, PASSWORD_HASH, TOKEN_VERSION)
+      if (c.env.SUPER_ADMIN_LOGIN_ID && c.env.SUPER_ADMIN_PASSWORD_HASH && c.env.SUPER_ADMIN_TOKEN_VERSION) {
+        const response = await superAdminService.loginSuperAdmin(body, requestId, c.env);
+        return c.json(response, 200);
+      }
       
-      return c.json(response, 200);
+      // Fallback: Simple password-only auth (if SUPER_ADMIN_PASSWORD is set)
+      if (c.env.SUPER_ADMIN_PASSWORD) {
+        const password = body.password;
+        
+        if (password !== c.env.SUPER_ADMIN_PASSWORD) {
+          return c.json({ error: 'Invalid credentials' }, 401);
+        }
+        
+        // Generate simple JWT token
+        const { SignJWT } = await import('jose');
+        const secret = new TextEncoder().encode(c.env.JWT_SECRET);
+        
+        const accessToken = await new SignJWT({
+          sub: 'super-admin',
+          role: 'super_admin',
+          tokenVersion: 0,
+        })
+          .setProtectedHeader({ alg: 'HS256' })
+          .setIssuedAt()
+          .setExpirationTime('24h')
+          .sign(secret);
+        
+        return c.json({
+          accessToken,
+          user: {
+            id: 'super-admin',
+            role: 'super_admin'
+          }
+        }, 200);
+      }
+      
+      // No auth configured
+      return c.json({ error: 'Super admin authentication not configured' }, 500);
+      
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Authentication failed';
       
