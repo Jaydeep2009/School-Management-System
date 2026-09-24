@@ -1,0 +1,29 @@
+# Development Environment Variables
+# Copy this file to .dev.vars and fill in the values
+# NEVER commit .dev.vars to version control
+
+# JWT Secret (used for signing access tokens)
+# Generate with: openssl rand -base64 32
+JWT_SECRET=your-jwt-secret-here
+
+# Super Admin Credentials
+# These are REQUIRED for Super Admin authentication to work
+
+# Super Admin Login ID
+SUPER_ADMIN_LOGIN_ID=super-admin
+
+# Super Admin Password Hash
+# Generate with: node -e "import('./src/auth/password.service.js').then(m => m.hashPassword('YourPasswordHere').then(console.log))"
+# Password must meet strength requirements:
+# - At least 8 characters
+# - At least one uppercase letter
+# - At least one lowercase letter
+# - At least one number
+# - At least one special character
+SUPER_ADMIN_PASSWORD_HASH=scrypt$16384:8:1$...your-hash-here...
+
+# Super Admin Token Version
+# Used for token invalidation without changing JWT_SECRET
+# Increment this number to invalidate all existing Super Admin tokens
+# Must be a non-negative integer
+SUPER_ADMIN_TOKEN_VERSION=1

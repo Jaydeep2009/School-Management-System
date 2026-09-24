@@ -85,18 +85,14 @@ export const updateSubjectSchema = z.object({
 /**
  * Teaching Assignment Schemas
  */
-export const teachingAssignmentStatusSchema = z.enum(['active', 'completed']);
-
 export const createTeachingAssignmentSchema = z.object({
-  academic_year_id: z.string().uuid(),
   teacher_id: z.string().uuid(),
   classroom_id: z.string().uuid(),
   subject_id: z.string().uuid(),
 });
 
 export const updateTeachingAssignmentSchema = z.object({
-  teacher_id: z.string().uuid().optional(),
-  status: teachingAssignmentStatusSchema.optional(),
+  teacher_id: z.string().uuid().nullable().optional(),
 });
 
 /**

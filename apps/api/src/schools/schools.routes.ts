@@ -14,7 +14,7 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSuperAdmin, type AuthContext } from '../auth/auth.middleware';
 import * as schoolsService from './schools.service';
 import * as schoolsSchemas from './schools.schemas';
 import { SchoolError } from './schools.errors';
@@ -27,7 +27,7 @@ const app = new Hono<AuthContext>();
  */
 app.post('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const body = await c.req.json();
     const validated = schoolsSchemas.createSchoolSchema.parse(body);
 
@@ -52,7 +52,7 @@ app.post('/', requireAuth, async (c) => {
  */
 app.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const query = c.req.query();
     const filters = schoolsSchemas.schoolFiltersSchema.parse(query);
 
@@ -74,7 +74,7 @@ app.get('/', requireAuth, async (c) => {
  */
 app.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const schoolId = c.req.param('id');
 
     if (!schoolId) {
@@ -102,7 +102,7 @@ app.get('/:id', requireAuth, async (c) => {
  */
 app.put('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const schoolId = c.req.param('id');
     
     if (!schoolId) {
@@ -135,7 +135,7 @@ app.put('/:id', requireAuth, async (c) => {
  */
 app.post('/:id/suspend', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const schoolId = c.req.param('id');
 
     if (!schoolId) {
@@ -163,7 +163,7 @@ app.post('/:id/suspend', requireAuth, async (c) => {
  */
 app.post('/:id/activate', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const schoolId = c.req.param('id');
 
     if (!schoolId) {
@@ -194,7 +194,7 @@ app.post('/:id/activate', requireAuth, async (c) => {
  */
 app.post('/:id/archive', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const schoolId = c.req.param('id');
 
     if (!schoolId) {
@@ -224,7 +224,7 @@ app.post('/:id/archive', requireAuth, async (c) => {
  */
 app.post('/:id/principal', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSuperAdmin(c);
     const schoolId = c.req.param('id');
     
     if (!schoolId) {

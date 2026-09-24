@@ -18,7 +18,7 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as marksService from './marks.service';
 import { MarksError } from './marks.errors';
 import {
@@ -40,7 +40,7 @@ const marks = new Hono<AuthContext>();
  */
 marks.post('/assessments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
 
     // Validate request
@@ -72,7 +72,7 @@ marks.post('/assessments', requireAuth, async (c) => {
  */
 marks.get('/assessments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const query = c.req.query();
 
     // Validate query
@@ -104,7 +104,7 @@ marks.get('/assessments', requireAuth, async (c) => {
  */
 marks.get('/assessments/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -134,7 +134,7 @@ marks.get('/assessments/:id', requireAuth, async (c) => {
  */
 marks.put('/assessments/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const body = await c.req.json();
 
@@ -172,7 +172,7 @@ marks.put('/assessments/:id', requireAuth, async (c) => {
  */
 marks.post('/assessments/:id/publish', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -198,7 +198,7 @@ marks.post('/assessments/:id/publish', requireAuth, async (c) => {
  */
 marks.post('/assessments/:id/lock', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -224,7 +224,7 @@ marks.post('/assessments/:id/lock', requireAuth, async (c) => {
  */
 marks.post('/assessments/:id/unlock', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -250,7 +250,7 @@ marks.post('/assessments/:id/unlock', requireAuth, async (c) => {
  */
 marks.put('/assessments/:id/marks', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const body = await c.req.json();
 
@@ -288,7 +288,7 @@ marks.put('/assessments/:id/marks', requireAuth, async (c) => {
  */
 marks.get('/assessments/:id/marks', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -318,7 +318,7 @@ marks.get('/assessments/:id/marks', requireAuth, async (c) => {
  */
 marks.get('/students/:studentId/summary', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const studentId = c.req.param('studentId');
     const query = c.req.query();
 
@@ -356,7 +356,7 @@ marks.get('/students/:studentId/summary', requireAuth, async (c) => {
  */
 marks.get('/students/:studentId/subject-wise', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const studentId = c.req.param('studentId');
     const query = c.req.query();
 
@@ -394,7 +394,7 @@ marks.get('/students/:studentId/subject-wise', requireAuth, async (c) => {
  */
 marks.get('/classrooms/:classroomId/report', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const classroomId = c.req.param('classroomId');
     const query = c.req.query();
 

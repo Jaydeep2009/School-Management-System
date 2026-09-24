@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as enrollmentService from './enrollment.service';
 import * as enrollmentSchemas from './academic.schemas';
-import { requireAuth, getTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requireRole, ensureCanViewStudent } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
@@ -29,7 +29,7 @@ const enrollments = new Hono<AuthContext>();
  */
 enrollments.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     const filters = {
       academic_year_id: c.req.query('academic_year_id'),
@@ -64,7 +64,7 @@ enrollments.get('/', requireAuth, async (c) => {
  */
 enrollments.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     // Fetch enrollment (tenant-scoped)
@@ -102,7 +102,7 @@ enrollments.post(
   zValidator('json', enrollmentSchemas.createEnrollmentSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');
@@ -138,7 +138,7 @@ enrollments.patch(
   zValidator('json', enrollmentSchemas.updateEnrollmentSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');

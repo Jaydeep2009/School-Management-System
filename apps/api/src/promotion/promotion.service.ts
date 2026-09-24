@@ -4,6 +4,7 @@
  * Business logic for promotion batches, decisions, planning, application, and year activation
  */
 
+import { randomUUID } from 'node:crypto';
 import type { TenantContext } from '../auth/auth.types';
 import type {
   PromotionBatch,
@@ -528,8 +529,17 @@ export async function activateYear(
     .bind(tenant.schoolId)
     .first<{ id: string }>();
 
-  const now = Date.now();
-  let previousYearId = currentYearResult?.id || null;
+  const previousYearId = currentYearResult?.id || null;
+
+  if (!previousYearId) {
+    throw PromotionError.activationBlocked([
+      { check: 'previous_year', passed: false, message: 'No current academic year found to close' }
+    ]);
+  }
+
+  const now = new Date().toISOString();
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const auditId = randomUUID();
 
   // Audit start
   await logAudit(db, tenant, 'promotion_year_activation_started', 'academic_year', yearId, null, {
@@ -537,42 +547,120 @@ export async function activateYear(
     new_year_id: yearId,
   });
 
-  // Activate planned enrollments in target year
-  const enrollmentsResult = await db
-    .prepare(
+  // Atomic year activation using db.batch()
+  // All statements execute in a single transaction - all or nothing
+  const statements = [
+    // 1. Leavers: end their enrollment as 'left'
+    db.prepare(
+      `UPDATE enrollments SET status = 'left', left_on = ?, updated_at = ?
+       WHERE school_id = ? AND academic_year_id = ?
+         AND status = 'active' AND outcome = 'left'`
+    ).bind(today, now, tenant.schoolId, previousYearId),
+
+    // 2. Everyone else in old year: completed, dated at year's end
+    db.prepare(
       `UPDATE enrollments
-       SET status = 'active', updated_at = ?
-       WHERE academic_year_id = ? AND school_id = ? AND status = 'planned'`
-    )
-    .bind(now, yearId, tenant.schoolId)
-    .run();
+       SET status = 'completed',
+           left_on = (SELECT ends_on FROM academic_years WHERE id = ?),
+           updated_at = ?
+       WHERE school_id = ? AND academic_year_id = ? AND status = 'active'`
+    ).bind(previousYearId, now, tenant.schoolId, previousYearId),
 
-  const enrollmentsActivated = enrollmentsResult.meta?.changes || 0;
+    // 3. Planned enrollments in new year go live
+    db.prepare(
+      `UPDATE enrollments SET status = 'active', updated_at = ?
+       WHERE school_id = ? AND academic_year_id = ? AND status = 'planned'`
+    ).bind(now, tenant.schoolId, yearId),
 
-  // Close previous year
-  if (previousYearId) {
-    await db
-      .prepare(`UPDATE academic_years SET status = 'closed', updated_at = ? WHERE id = ?`)
-      .bind(now, previousYearId)
-      .run();
+    // 4. Leavers: profile withdrawn
+    db.prepare(
+      `UPDATE student_profiles SET status = 'withdrawn', updated_at = ?
+       WHERE school_id = ? AND user_id IN
+         (SELECT student_id FROM enrollments
+          WHERE school_id = ? AND academic_year_id = ? AND outcome = 'left')`
+    ).bind(now, tenant.schoolId, tenant.schoolId, previousYearId),
+
+    // 5. Leavers: login disabled, sessions revoked via token_version increment
+    db.prepare(
+      `UPDATE users SET status = 'disabled', token_version = token_version + 1, updated_at = ?
+       WHERE school_id = ? AND id IN
+         (SELECT student_id FROM enrollments
+          WHERE school_id = ? AND academic_year_id = ? AND outcome = 'left')`
+    ).bind(now, tenant.schoolId, tenant.schoolId, previousYearId),
+
+    // 6. Leavers: explicitly revoke active sessions
+    db.prepare(
+      `UPDATE sessions SET revoked_at = ?
+       WHERE revoked_at IS NULL AND user_id IN
+         (SELECT student_id FROM enrollments
+          WHERE school_id = ? AND academic_year_id = ? AND outcome = 'left')`
+    ).bind(now, tenant.schoolId, previousYearId),
+
+    // 7. Graduates: profile inactive
+    db.prepare(
+      `UPDATE student_profiles SET status = 'inactive', updated_at = ?
+       WHERE school_id = ? AND user_id IN
+         (SELECT student_id FROM enrollments
+          WHERE school_id = ? AND academic_year_id = ? AND outcome = 'graduated')`
+    ).bind(now, tenant.schoolId, tenant.schoolId, previousYearId),
+
+    // 8. Close old year FIRST (only one 'current' allowed)
+    db.prepare(
+      `UPDATE academic_years SET status = 'closed', updated_at = ?
+       WHERE id = ? AND school_id = ? AND status = 'current'`
+    ).bind(now, previousYearId, tenant.schoolId),
+
+    // 9. Activate new year
+    db.prepare(
+      `UPDATE academic_years SET status = 'current', updated_at = ?
+       WHERE id = ? AND school_id = ? AND status = 'upcoming'`
+    ).bind(now, yearId, tenant.schoolId),
+
+    // 10. Promotion batches for new year are now applied
+    db.prepare(
+      `UPDATE promotion_batches SET status = 'applied', applied_at = ?
+       WHERE school_id = ? AND to_academic_year_id = ? AND status = 'planned'`
+    ).bind(now, tenant.schoolId, yearId),
+  ];
+
+  // Execute all statements atomically
+  const results = await db.batch(statements);
+
+  // Extract counts from results
+  const leaversEnded = results[0]?.meta?.changes || 0;
+  const enrollmentsCompleted = results[1]?.meta?.changes || 0;
+  const enrollmentsActivated = results[2]?.meta?.changes || 0;
+  const leaverProfilesWithdrawn = results[3]?.meta?.changes || 0;
+  const leaverUsersDisabled = results[4]?.meta?.changes || 0;
+  const sessionsRevoked = results[5]?.meta?.changes || 0;
+  const graduatesInactive = results[6]?.meta?.changes || 0;
+  const oldYearClosed = results[7]?.meta?.changes || 0;
+  const newYearActivated = results[8]?.meta?.changes || 0;
+  const batchesApplied = results[9]?.meta?.changes || 0;
+
+  // Verify critical operations succeeded
+  if (oldYearClosed !== 1) {
+    throw PromotionError.activationFailed(
+      `Failed to close previous year (expected 1, got ${oldYearClosed})`
+    );
   }
 
-  // Activate new year
-  await db
-    .prepare(`UPDATE academic_years SET status = 'current', updated_at = ? WHERE id = ?`)
-    .bind(now, yearId)
-    .run();
+  if (newYearActivated !== 1) {
+    throw PromotionError.activationFailed(
+      `Failed to activate new year (expected 1, got ${newYearActivated})`
+    );
+  }
 
   const result: ActivationResult = {
     success: true,
-    previous_year_id: previousYearId || '',
+    previous_year_id: previousYearId,
     new_year_id: yearId,
-    students_promoted: 0, // TODO: Calculate from applied batches
-    students_retained: 0,
-    students_graduated: 0,
-    students_left: 0,
+    students_promoted: enrollmentsActivated - leaversEnded - graduatesInactive, // Active - left - graduated
+    students_retained: 0, // TODO: Calculate retained students (promoted to same grade)
+    students_graduated: graduatesInactive,
+    students_left: leaversEnded,
     enrollments_activated: enrollmentsActivated,
-    sessions_revoked: 0,
+    sessions_revoked: sessionsRevoked,
   };
 
   // Audit completion

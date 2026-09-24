@@ -186,8 +186,9 @@ export async function create(
   const now = new Date().toISOString();
 
   try {
-    // Create user record
-    await db
+    // ATOMICITY: Use db.batch() to ensure both INSERTs succeed or both fail
+    // This prevents orphaned user records if profile creation fails
+    const userInsert = db
       .prepare(
         `INSERT INTO users (
           id, school_id, login_id, role, status,
@@ -208,30 +209,42 @@ export async function create(
         0, // token_version
         now,
         now
-      )
-      .run();
+      );
 
-    // Create student profile (user_id is the primary key)
-    await studentRepo.create(db, {
-      id: userId, // user_id is the PK, but type expects id
-      user_id: userId,
-      school_id: schoolId,
-      student_code: studentCode,
-      admission_number: data.admission_number,
-      first_name: data.first_name,
-      middle_name: data.middle_name || null,
-      last_name: data.last_name,
-      gender: data.gender || null,
-      date_of_birth: data.date_of_birth || null,
-      dob_md: extractMonthDay(data.date_of_birth),
-      phone: data.phone || null,
-      email: data.email || null,
-      address: data.address || null,
-      parent_name: data.parent_name || null,
-      parent_phone: data.parent_phone || null,
-      parent_email: data.parent_email || null,
-      status: 'active',
-    });
+    const profileInsert = db
+      .prepare(
+        `INSERT INTO student_profiles (
+          user_id, school_id, student_code, admission_number,
+          first_name, middle_name, last_name, gender, date_of_birth, dob_md,
+          phone, email, address, parent_name, parent_phone, parent_email,
+          status, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        userId,
+        schoolId,
+        studentCode,
+        data.admission_number,
+        data.first_name,
+        data.middle_name || null,
+        data.last_name,
+        data.gender || null,
+        data.date_of_birth || null,
+        extractMonthDay(data.date_of_birth),
+        data.phone || null,
+        data.email || null,
+        data.address || null,
+        data.parent_name || null,
+        data.parent_phone || null,
+        data.parent_email || null,
+        'active',
+        now,
+        now
+      );
+
+    // Execute both INSERTs in a single atomic transaction
+    await db.batch([userInsert, profileInsert]);
 
     // SECURITY: Temporary password is returned ONCE and never logged
     return {
@@ -242,8 +255,8 @@ export async function create(
       temporary_password: temporaryPassword,
     };
   } catch (error) {
-    // If anything fails, the transaction should rollback
-    // D1 doesn't support explicit transactions, but we can detect failures
+    // If anything fails, the entire transaction is rolled back automatically
+    // No orphaned records will be created
     throw new StudentError(
       'Failed to create student account',
       'CREATION_FAILED',

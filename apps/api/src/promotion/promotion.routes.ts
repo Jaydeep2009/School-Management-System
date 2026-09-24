@@ -16,7 +16,7 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as promotionService from './promotion.service';
 import { PromotionError } from './promotion.errors';
 import {
@@ -42,7 +42,7 @@ const promotion = new Hono<AuthContext>();
  */
 promotion.get('/candidates', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const academicYearId = c.req.query('academic_year_id');
     const classroomId = c.req.query('classroom_id');
 
@@ -80,7 +80,7 @@ promotion.get('/candidates', requireAuth, async (c) => {
  */
 promotion.post('/batches', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
 
     const validated = createPromotionBatchSchema.parse(body);
@@ -107,7 +107,7 @@ promotion.post('/batches', requireAuth, async (c) => {
  */
 promotion.get('/batches', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const status = c.req.query('status') as 'draft' | 'planned' | 'applied' | 'cancelled' | undefined;
 
     const batches = await promotionService.listPromotionBatches(c.env.DB, tenant, status);
@@ -129,7 +129,7 @@ promotion.get('/batches', requireAuth, async (c) => {
  */
 promotion.get('/batches/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) {
       return c.json({ error: 'Batch ID is required' }, 400);
@@ -154,7 +154,7 @@ promotion.get('/batches/:id', requireAuth, async (c) => {
  */
 promotion.post('/batches/:id/plan', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) {
       return c.json({ error: 'Batch ID is required' }, 400);
@@ -179,7 +179,7 @@ promotion.post('/batches/:id/plan', requireAuth, async (c) => {
  */
 promotion.post('/batches/:id/apply', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) {
       return c.json({ error: 'Batch ID is required' }, 400);
@@ -204,7 +204,7 @@ promotion.post('/batches/:id/apply', requireAuth, async (c) => {
  */
 promotion.post('/batches/:id/cancel', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) {
       return c.json({ error: 'Batch ID is required' }, 400);
@@ -241,7 +241,7 @@ promotion.post('/batches/:id/cancel', requireAuth, async (c) => {
  */
 promotion.get('/batches/:id/items', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) {
       return c.json({ error: 'Batch ID is required' }, 400);
@@ -266,7 +266,7 @@ promotion.get('/batches/:id/items', requireAuth, async (c) => {
  */
 promotion.put('/batches/:id/items', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const batchId = c.req.param('id');
     if (!batchId) {
       return c.json({ error: 'Batch ID is required' }, 400);
@@ -308,7 +308,7 @@ promotion.put('/batches/:id/items', requireAuth, async (c) => {
  */
 promotion.get('/academic-years/:id/activation-check', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) {
       return c.json({ error: 'Academic year ID is required' }, 400);
@@ -333,7 +333,7 @@ promotion.get('/academic-years/:id/activation-check', requireAuth, async (c) => 
  */
 promotion.post('/academic-years/:id/activate', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) {
       return c.json({ error: 'Academic year ID is required' }, 400);

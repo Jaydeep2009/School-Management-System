@@ -17,7 +17,7 @@ import { zValidator } from '@hono/zod-validator';
 import * as studentService from './student.service';
 import * as bulkProvisionService from './bulk-provision.service';
 import * as studentSchemas from './accounts.schemas';
-import { requireAuth, getTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requireRole } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
@@ -37,7 +37,7 @@ const students = new Hono<AuthContext>();
  */
 students.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     // Authorization: Principal only
     requireRole(tenant, 'principal');
@@ -65,7 +65,7 @@ students.get('/', requireAuth, async (c) => {
  */
 students.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     // Fetch student with user info (tenant-scoped)
@@ -111,7 +111,7 @@ students.post(
   zValidator('json', studentSchemas.createStudentSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
       // Authorization: Principal only
@@ -165,7 +165,7 @@ students.post(
   zValidator('json', studentSchemas.bulkProvisionStudentsSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
       // Authorization: Principal only
@@ -217,7 +217,7 @@ students.patch(
   zValidator('json', studentSchemas.updateStudentSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
       // Authorization: Principal only
@@ -260,7 +260,7 @@ students.patch(
  */
 students.post('/:id/disable', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
     
     // Authorization: Principal only
@@ -300,7 +300,7 @@ students.post('/:id/disable', requireAuth, async (c) => {
  */
 students.post('/:id/reactivate', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
     
     // Authorization: Principal only
@@ -343,7 +343,7 @@ students.post('/:id/reactivate', requireAuth, async (c) => {
  */
 students.post('/:id/reset-password', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
     
     // Authorization: Principal only
@@ -384,7 +384,7 @@ students.post('/:id/reset-password', requireAuth, async (c) => {
  */
 students.get('/:id/enrollments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     // Fetch student to verify existence (tenant-scoped)

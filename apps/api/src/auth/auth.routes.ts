@@ -12,13 +12,15 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as authService from './auth.service';
+import * as superAdminService from './super-admin.service';
 import * as authSchemas from './auth.schemas';
-import { requireAuth, getTenant, getRequestIdFromContext, type AuthContext } from './auth.middleware';
+import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from './auth.middleware';
 import type {
   LoginRequest,
   ActivationRequest,
   PasswordChangeRequest,
   RefreshRequest,
+  SuperAdminLoginRequest,
 } from './auth.types';
 
 const auth = new Hono<AuthContext>();
@@ -97,7 +99,7 @@ auth.post(
   async (c) => {
     try {
       const requestId = getRequestIdFromContext(c);
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const body = c.req.valid('json') as PasswordChangeRequest;
       
       const response = await authService.changePassword(
@@ -157,7 +159,7 @@ auth.post(
 auth.post('/logout', requireAuth, async (c) => {
   try {
     const requestId = getRequestIdFromContext(c);
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     await authService.logout(tenant.sessionId, tenant.userId, requestId, c.env);
     
@@ -174,7 +176,7 @@ auth.post('/logout', requireAuth, async (c) => {
  */
 auth.get('/me', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     return c.json({
       userId: tenant.userId,
@@ -186,5 +188,39 @@ auth.get('/me', requireAuth, async (c) => {
     return c.json({ error: 'Failed to get user info' }, 500);
   }
 });
+
+/**
+ * POST /auth/super-admin/login
+ * Super Admin platform-level authentication
+ * 
+ * SECURITY:
+ * - No refresh token (access token only, 15min expiry)
+ * - Constant-time credential verification
+ * - Generic error messages
+ * - Fails closed if secrets misconfigured
+ */
+auth.post(
+  '/super-admin/login',
+  zValidator('json', authSchemas.loginRequestSchema), // Reuse existing schema
+  async (c) => {
+    try {
+      const requestId = getRequestIdFromContext(c);
+      const body = c.req.valid('json') as SuperAdminLoginRequest;
+      
+      const response = await superAdminService.loginSuperAdmin(body, requestId, c.env);
+      
+      return c.json(response, 200);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Authentication failed';
+      
+      // Return generic error to avoid information disclosure
+      if (message.includes('credentials') || message.includes('failed')) {
+        return c.json({ error: 'Invalid credentials' }, 401);
+      }
+      
+      return c.json({ error: 'Authentication failed' }, 500);
+    }
+  }
+);
 
 export default auth;

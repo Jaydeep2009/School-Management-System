@@ -8,11 +8,12 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as importsService from './imports.service';
 import { ImportError } from './imports.errors';
 import { previewImportSchema, commitImportSchema } from './imports.schemas';
 import { z } from 'zod';
+import * as XLSX from 'xlsx';
 import type { ImportKind } from './imports.types';
 
 const imports = new Hono<AuthContext>();
@@ -24,17 +25,39 @@ const imports = new Hono<AuthContext>();
  */
 imports.post('/:kind/preview', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const kind = c.req.param('kind') as ImportKind;
     
     if (!kind) {
       return c.json({ error: 'Import kind is required' }, 400);
     }
 
-    const body = await c.req.json();
-    const validated = previewImportSchema.parse(body);
+    // Parse multipart form data
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    const optionsStr = formData.get('options');
 
-    const result = await importsService.previewImport(c.env.DB, kind, validated, tenant);
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: 'Excel file is required' }, 400);
+    }
+
+    // Read Excel file
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(firstSheet);
+
+    // Parse options if provided
+    let options: Record<string, unknown> = {};
+    if (optionsStr && typeof optionsStr === 'string') {
+      try {
+        options = JSON.parse(optionsStr);
+      } catch (e) {
+        return c.json({ error: 'Invalid options JSON' }, 400);
+      }
+    }
+
+    const result = await importsService.previewImport(c.env.DB, kind, { rows, options }, tenant);
 
     return c.json({ data: result }, 200);
   } catch (error) {
@@ -56,7 +79,7 @@ imports.post('/:kind/preview', requireAuth, async (c) => {
  */
 imports.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     
     if (!id) {
@@ -82,7 +105,7 @@ imports.get('/:id', requireAuth, async (c) => {
  */
 imports.post('/:id/commit', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     
     if (!id) {
@@ -114,7 +137,7 @@ imports.post('/:id/commit', requireAuth, async (c) => {
  */
 imports.post('/:id/cancel', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     
     if (!id) {

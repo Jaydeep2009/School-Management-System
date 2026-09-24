@@ -20,6 +20,7 @@ import profilesRoutes from './profiles/profiles.routes';
 import timetableRoutes from './timetable/timetable.routes';
 import importsRoutes from './imports/imports.routes';
 import schoolsRoutes from './schools/schools.routes';
+import * as cronHandlers from './cron/handlers';
 
 export type Env = {
   DB: D1Database;
@@ -74,5 +75,49 @@ app.onError((err, c) => {
   console.error(`Error: ${err.message}`);
   return c.json({ error: 'Internal Server Error' }, 500);
 });
+
+/**
+ * Scheduled handler for cron jobs
+ * Cloudflare Workers cron triggers call this function
+ */
+export const scheduled: ExportedHandlerScheduledHandler<Env> = async (event, env, ctx) => {
+  const cronTime = new Date(event.scheduledTime);
+  const hour = cronTime.getUTCHours();
+
+  console.log(`[CRON] Triggered at ${cronTime.toISOString()} (UTC hour: ${hour})`);
+
+  try {
+    // Route to appropriate handler based on UTC hour
+    switch (hour) {
+      case 1:
+        // 1:00 AM UTC - Attendance statistics
+        await cronHandlers.attendanceStatsCron(env.DB, env);
+        break;
+
+      case 2:
+        // 2:00 AM UTC - Marks statistics
+        await cronHandlers.marksStatsCron(env.DB, env);
+        break;
+
+      case 6:
+        // 6:00 AM UTC - Birthday digest
+        await cronHandlers.birthdayDigestCron(env.DB, env);
+        break;
+
+      case 8:
+        // 8:00 AM UTC - Fee reminders
+        await cronHandlers.feeRemindersCron(env.DB, env);
+        break;
+
+      default:
+        console.log(`[CRON] No handler for UTC hour ${hour}`);
+    }
+
+    console.log('[CRON] Job completed successfully');
+  } catch (error) {
+    console.error('[CRON] Job failed:', error);
+    // Don't throw - let the cron continue on next schedule
+  }
+};
 
 export default app;

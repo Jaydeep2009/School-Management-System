@@ -14,7 +14,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as academicYearService from './academic-year.service';
 import * as academicYearSchemas from './academic.schemas';
-import { requireAuth, getTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requireRole } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
@@ -31,7 +31,7 @@ const academicYears = new Hono<AuthContext>();
  */
 academicYears.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const years = await academicYearService.list(c.env.DB, tenant.schoolId);
     return c.json({ data: years }, 200);
   } catch (error) {
@@ -47,7 +47,7 @@ academicYears.get('/', requireAuth, async (c) => {
  */
 academicYears.get('/current', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const current = await academicYearService.getCurrent(c.env.DB, tenant.schoolId);
     
     if (!current) {
@@ -68,7 +68,7 @@ academicYears.get('/current', requireAuth, async (c) => {
  */
 academicYears.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     const year = await academicYearService.getById(c.env.DB, id, tenant.schoolId);
@@ -93,7 +93,7 @@ academicYears.post(
   zValidator('json', academicYearSchemas.createAcademicYearSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');
@@ -129,7 +129,7 @@ academicYears.patch(
   zValidator('json', academicYearSchemas.updateAcademicYearSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');
@@ -166,7 +166,7 @@ academicYears.patch(
  */
 academicYears.post('/:id/activate', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     // Authorization: Principal only
     requireRole(tenant, 'principal');
@@ -197,7 +197,7 @@ academicYears.post('/:id/activate', requireAuth, async (c) => {
  */
 academicYears.post('/:id/close', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     // Authorization: Principal only
     requireRole(tenant, 'principal');

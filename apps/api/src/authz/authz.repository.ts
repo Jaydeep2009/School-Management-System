@@ -26,13 +26,12 @@ export async function findTeachingAssignment(
 ): Promise<TeachingAssignment | null> {
   const result = await db
     .prepare(
-      `SELECT id, teacher_id, classroom_id, subject_id, school_id, academic_year, status
+      `SELECT id, teacher_id, classroom_id, subject_id, school_id
        FROM teaching_assignments
        WHERE teacher_id = ?
          AND classroom_id = ?
          AND subject_id = ?
          AND school_id = ?
-         AND status = 'active'
        LIMIT 1`
     )
     .bind(teacherId, classroomId, subjectId, schoolId)
@@ -54,12 +53,11 @@ export async function findAnyTeachingAssignment(
 ): Promise<TeachingAssignment | null> {
   const result = await db
     .prepare(
-      `SELECT id, teacher_id, classroom_id, subject_id, school_id, academic_year, status
+      `SELECT id, teacher_id, classroom_id, subject_id, school_id
        FROM teaching_assignments
        WHERE teacher_id = ?
          AND classroom_id = ?
          AND school_id = ?
-         AND status = 'active'
        LIMIT 1`
     )
     .bind(teacherId, classroomId, schoolId)

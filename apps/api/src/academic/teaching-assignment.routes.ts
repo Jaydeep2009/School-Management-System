@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as teachingAssignmentService from './teaching-assignment.service';
 import * as teachingAssignmentSchemas from './academic.schemas';
-import { requireAuth, getTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requireRole } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
@@ -29,7 +29,7 @@ const teachingAssignments = new Hono<AuthContext>();
  */
 teachingAssignments.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     const filters = {
       academic_year_id: c.req.query('academic_year_id'),
@@ -54,7 +54,7 @@ teachingAssignments.get('/', requireAuth, async (c) => {
  */
 teachingAssignments.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     const assignment = await teachingAssignmentService.getById(c.env.DB, id, tenant.schoolId);
@@ -79,7 +79,7 @@ teachingAssignments.post(
   zValidator('json', teachingAssignmentSchemas.createTeachingAssignmentSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');
@@ -115,7 +115,7 @@ teachingAssignments.patch(
   zValidator('json', teachingAssignmentSchemas.updateTeachingAssignmentSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');

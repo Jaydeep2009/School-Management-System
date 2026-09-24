@@ -207,7 +207,8 @@ export async function publishTimetable(
     timetable.academic_year_id
   );
 
-  // Only after validation succeeds, archive the old published version
+  // Only after validation succeeds, atomically archive old and publish new
+  // This prevents race conditions where two concurrent publishes could both succeed
   const currentPublished = await timetableRepo.findPublishedTimetable(
     db,
     tenant.schoolId,
@@ -215,15 +216,21 @@ export async function publishTimetable(
     timetable.classroom_id
   );
 
+  // Atomic archive + publish using db.batch()
+  await timetableRepo.atomicArchiveAndPublish(
+    db,
+    timetableId,
+    tenant.schoolId,
+    timetable.academic_year_id,
+    timetable.classroom_id
+  );
+
+  // Log audit events after successful atomic operation
   if (currentPublished) {
-    await timetableRepo.archiveTimetable(db, currentPublished.id, tenant.schoolId);
     await logAudit(db, tenant, 'timetable_archived', 'timetable', currentPublished.id, currentPublished, { ...currentPublished, status: 'archived' });
   }
 
-  await timetableRepo.publishTimetable(db, timetableId, tenant.schoolId);
-
   const published = await timetableRepo.findTimetableById(db, timetableId, tenant.schoolId);
-
   await logAudit(db, tenant, 'timetable_published', 'timetable', timetableId, timetable, published);
 
   return published!;

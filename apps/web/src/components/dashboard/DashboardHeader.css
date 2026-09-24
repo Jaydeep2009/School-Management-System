@@ -1,0 +1,32 @@
+.dashboard-header {
+  margin-bottom: 32px;
+}
+
+.dashboard-header-greeting {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-header-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.dashboard-header-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    margin-bottom: 24px;
+  }
+
+  .dashboard-header-title {
+    font-size: 24px;
+  }
+}

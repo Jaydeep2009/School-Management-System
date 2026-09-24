@@ -101,23 +101,21 @@ export interface UpdateSubjectRequest {
 
 /**
  * Teaching Assignment
+ * Note: No status or academic_year_id per schema v1.1
+ * A teaching assignment exists as long as it's in the table.
+ * Academic year is derived from the classroom's academic_year_id.
  */
-export type TeachingAssignmentStatus = 'active' | 'completed';
-
 export interface TeachingAssignment {
   id: string;
   school_id: string;
-  academic_year_id: string;
-  teacher_id: string;
+  teacher_id: string | null;
   classroom_id: string;
   subject_id: string;
-  status: TeachingAssignmentStatus;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateTeachingAssignmentRequest {
-  academic_year_id: string;
   teacher_id: string;
   classroom_id: string;
   subject_id: string;
@@ -125,7 +123,6 @@ export interface CreateTeachingAssignmentRequest {
 
 export interface UpdateTeachingAssignmentRequest {
   teacher_id?: string;
-  status?: TeachingAssignmentStatus;
 }
 
 /**

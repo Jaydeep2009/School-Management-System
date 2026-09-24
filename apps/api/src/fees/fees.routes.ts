@@ -19,7 +19,7 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as feesService from './fees.service';
 import { FeesError } from './fees.errors';
 import {
@@ -47,7 +47,7 @@ const fees = new Hono<AuthContext>();
  */
 fees.post('/categories', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
 
     const validated = createFeeCategorySchema.parse(body);
@@ -74,7 +74,7 @@ fees.post('/categories', requireAuth, async (c) => {
  */
 fees.get('/categories', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const status = c.req.query('status') as 'active' | 'inactive' | undefined;
 
     const categories = await feesService.listFeeCategories(c.env.DB, tenant, status);
@@ -96,7 +96,7 @@ fees.get('/categories', requireAuth, async (c) => {
  */
 fees.put('/categories/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const body = await c.req.json();
 
@@ -134,7 +134,7 @@ fees.put('/categories/:id', requireAuth, async (c) => {
  */
 fees.post('/charges', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
 
     const validated = createFeeChargeSchema.parse(body);
@@ -161,7 +161,7 @@ fees.post('/charges', requireAuth, async (c) => {
  */
 fees.get('/students/:studentId/charges', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const studentId = c.req.param('studentId');
     const academicYearId = c.req.query('academic_year_id');
 
@@ -193,7 +193,7 @@ fees.get('/students/:studentId/charges', requireAuth, async (c) => {
  */
 fees.post('/charges/:id/void', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const body = await c.req.json();
 
@@ -231,7 +231,7 @@ fees.post('/charges/:id/void', requireAuth, async (c) => {
  */
 fees.post('/payments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
 
     const validated = createFeePaymentSchema.parse(body);
@@ -258,7 +258,7 @@ fees.post('/payments', requireAuth, async (c) => {
  */
 fees.get('/students/:studentId/payments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const studentId = c.req.param('studentId');
     const academicYearId = c.req.query('academic_year_id');
 
@@ -290,7 +290,7 @@ fees.get('/students/:studentId/payments', requireAuth, async (c) => {
  */
 fees.post('/payments/:id/void', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const body = await c.req.json();
 
@@ -328,7 +328,7 @@ fees.post('/payments/:id/void', requireAuth, async (c) => {
  */
 fees.get('/students/:studentId/summary', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const studentId = c.req.param('studentId');
     const academicYearId = c.req.query('academic_year_id');
 

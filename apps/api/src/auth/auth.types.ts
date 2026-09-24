@@ -6,15 +6,39 @@ export type UserRole = 'principal' | 'teacher' | 'student';
 export type UserStatus = 'active' | 'disabled';
 
 /**
- * TenantContext - Server-derived authentication context
+ * School-scoped tenant context (principal/teacher/student)
  * NEVER accept these values from client requests
+ * 
+ * Uses discriminated union with kind: 'school'
  */
 export interface TenantContext {
+  kind: 'school';
   userId: string;
   role: UserRole;
   schoolId: string;
   sessionId: string;
 }
+
+/**
+ * Platform-level Super Admin context
+ * Used exclusively for platform operations
+ * 
+ * Uses discriminated union with kind: 'platform'
+ */
+export interface SuperAdminContext {
+  kind: 'platform';
+  userId: null;
+  role: 'super_admin';
+  schoolId: null;
+  sessionId: null;
+  tokenVersion: number;
+}
+
+/**
+ * Authenticated context - discriminated union
+ * Middleware produces this, routes narrow to specific type
+ */
+export type AuthenticatedContext = TenantContext | SuperAdminContext;
 
 /**
  * Database user record (subset of users table)
@@ -157,4 +181,31 @@ export interface SafeUserIdentity {
   role: UserRole;
   schoolId: string;
   mustChangePassword: boolean;
+}
+
+/**
+ * Super Admin login request
+ */
+export interface SuperAdminLoginRequest {
+  loginId: string;
+  password: string;
+}
+
+/**
+ * Super Admin login response
+ * NO refresh token - access token only with 15min expiry
+ */
+export interface SuperAdminLoginResponse {
+  accessToken: string;
+}
+
+/**
+ * Super Admin JWT payload
+ */
+export interface SuperAdminTokenPayload {
+  sub: 'super-admin'; // Fixed platform identifier
+  role: 'super_admin';
+  tokenVersion: number;
+  iat: number;
+  exp: number;
 }

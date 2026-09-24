@@ -16,7 +16,7 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as assignmentsService from './assignments.service';
 import { AssignmentsError } from './assignments.errors';
 import {
@@ -35,7 +35,7 @@ const assignments = new Hono<AuthContext>();
  */
 assignments.post('/assignments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
 
     // Validate request
@@ -67,7 +67,7 @@ assignments.post('/assignments', requireAuth, async (c) => {
  */
 assignments.get('/assignments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const query = c.req.query();
 
     // Validate query
@@ -99,7 +99,7 @@ assignments.get('/assignments', requireAuth, async (c) => {
  */
 assignments.get('/assignments/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -129,7 +129,7 @@ assignments.get('/assignments/:id', requireAuth, async (c) => {
  */
 assignments.put('/assignments/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const body = await c.req.json();
 
@@ -174,7 +174,7 @@ assignments.put('/assignments/:id', requireAuth, async (c) => {
  */
 assignments.post('/assignments/:id/publish', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -200,7 +200,7 @@ assignments.post('/assignments/:id/publish', requireAuth, async (c) => {
  */
 assignments.post('/assignments/:id/close', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -226,7 +226,7 @@ assignments.post('/assignments/:id/close', requireAuth, async (c) => {
  */
 assignments.post('/assignments/:id/attachments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -271,7 +271,7 @@ assignments.post('/assignments/:id/attachments', requireAuth, async (c) => {
  */
 assignments.get('/assignments/:id/attachments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
     if (!id) {
@@ -301,7 +301,7 @@ assignments.get('/assignments/:id/attachments', requireAuth, async (c) => {
  */
 assignments.get('/assignments/:id/attachments/:attachmentId', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const attachmentId = c.req.param('attachmentId');
 
@@ -348,7 +348,7 @@ assignments.get('/assignments/:id/attachments/:attachmentId', requireAuth, async
  */
 assignments.delete('/assignments/:id/attachments/:attachmentId', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     const attachmentId = c.req.param('attachmentId');
 

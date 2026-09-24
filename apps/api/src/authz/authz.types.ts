@@ -4,7 +4,7 @@
  * Defines resource types, actions, and policy results for authorization decisions
  */
 
-import type { TenantContext as AuthTenantContext } from '../auth/auth.types';
+import type { TenantContext as AuthTenantContext, SuperAdminContext, AuthenticatedContext } from '../auth/auth.types';
 
 /**
  * User roles (locked architecture)
@@ -12,12 +12,12 @@ import type { TenantContext as AuthTenantContext } from '../auth/auth.types';
 export type UserRole = 'super_admin' | 'principal' | 'teacher' | 'student';
 
 /**
- * Extended TenantContext for authorization
- * Supports super_admin role (not in authentication module)
+ * Tenant Context for authorization
+ * School-scoped only (Principal, Teacher, Student)
+ * 
+ * This is the narrowed type used by business logic
  */
-export interface TenantContext extends Omit<AuthTenantContext, 'role'> {
-  role: UserRole;
-}
+export type TenantContext = AuthTenantContext;
 
 /**
  * Resource types in the system

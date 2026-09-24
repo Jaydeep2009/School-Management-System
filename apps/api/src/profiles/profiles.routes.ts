@@ -16,9 +16,10 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as profilesService from './profiles.service';
 import { ProfileError } from './profiles.errors';
+import type { BirthdayFilters } from './profiles.types';
 import {
   updateTeacherProfileSchema,
   updateStudentProfileSchema,
@@ -41,7 +42,7 @@ const profiles = new Hono<AuthContext>();
  */
 profiles.get('/teachers/:userId', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const userId = c.req.param('userId');
 
     if (!userId) {
@@ -67,7 +68,7 @@ profiles.get('/teachers/:userId', requireAuth, async (c) => {
  */
 profiles.put('/teachers/:userId/profile', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const userId = c.req.param('userId');
 
     if (!userId) {
@@ -105,7 +106,7 @@ profiles.put('/teachers/:userId/profile', requireAuth, async (c) => {
  */
 profiles.get('/students/:userId', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const userId = c.req.param('userId');
 
     if (!userId) {
@@ -131,7 +132,7 @@ profiles.get('/students/:userId', requireAuth, async (c) => {
  */
 profiles.get('/students/:userId/enrollment', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const userId = c.req.param('userId');
 
     if (!userId) {
@@ -157,7 +158,7 @@ profiles.get('/students/:userId/enrollment', requireAuth, async (c) => {
  */
 profiles.get('/students/:userId/enrollments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const userId = c.req.param('userId');
 
     if (!userId) {
@@ -183,7 +184,7 @@ profiles.get('/students/:userId/enrollments', requireAuth, async (c) => {
  */
 profiles.put('/students/:userId/profile', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const userId = c.req.param('userId');
 
     if (!userId) {
@@ -215,6 +216,66 @@ profiles.put('/students/:userId/profile', requireAuth, async (c) => {
  */
 
 /**
+ * GET /birthdays/upcoming
+ * Get upcoming birthdays (combined teachers and students)
+ * Query params: thisWeek (true/false)
+ * Authorization: Principal only
+ */
+profiles.get('/birthdays/upcoming', requireAuth, async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    
+    const thisWeek = c.req.query('thisWeek') === 'true';
+    
+    const filters: BirthdayFilters = {
+      thisWeek: thisWeek || undefined,
+    };
+
+    // Get both teacher and student birthdays
+    const [teacherBirthdays, studentBirthdays] = await Promise.all([
+      profilesService.getTeacherBirthdays(c.env.DB, filters, tenant),
+      profilesService.getStudentBirthdays(c.env.DB, filters, tenant),
+    ]);
+
+    // Combine and format
+    const combined = [
+      ...teacherBirthdays.map(t => ({
+        id: t.user_id,
+        name: `${t.first_name} ${t.last_name}`,
+        type: 'teacher' as const,
+        day: parseInt(t.dob_md.split('-')[1]),
+        month: parseInt(t.dob_md.split('-')[0]),
+      })),
+      ...studentBirthdays.map(s => ({
+        id: s.user_id,
+        name: `${s.first_name} ${s.last_name}`,
+        type: 'student' as const,
+        classroom: `${s.grade_name} ${s.division_name}`,
+        day: parseInt(s.dob_md.split('-')[1]),
+        month: parseInt(s.dob_md.split('-')[0]),
+      })),
+    ];
+
+    // Sort by month, then day
+    combined.sort((a, b) => {
+      if (a.month !== b.month) return a.month - b.month;
+      return a.day - b.day;
+    });
+
+    return c.json({ data: combined }, 200);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Validation error', details: error.errors }, 400);
+    }
+    if (error instanceof ProfileError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to get upcoming birthdays';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
  * GET /birthdays/teachers
  * Get teacher birthdays
  * Query params: month (1-12), today (true/false), thisWeek (true/false)
@@ -222,7 +283,7 @@ profiles.put('/students/:userId/profile', requireAuth, async (c) => {
  */
 profiles.get('/birthdays/teachers', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const query = c.req.query();
 
     const validated = birthdayQuerySchema.parse(query);
@@ -256,7 +317,7 @@ profiles.get('/birthdays/teachers', requireAuth, async (c) => {
  */
 profiles.get('/birthdays/students', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const query = c.req.query();
 
     const validated = birthdayQuerySchema.parse(query);

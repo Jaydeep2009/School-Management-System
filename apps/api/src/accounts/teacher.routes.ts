@@ -15,7 +15,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as teacherService from './teacher.service';
 import * as teacherSchemas from './accounts.schemas';
-import { requireAuth, getTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requireRole } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
@@ -33,7 +33,7 @@ const teachers = new Hono<AuthContext>();
  */
 teachers.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     // Authorization: Principal only
     requireRole(tenant, 'principal');
@@ -61,7 +61,7 @@ teachers.get('/', requireAuth, async (c) => {
  */
 teachers.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     // Fetch teacher with user info (tenant-scoped)
@@ -106,7 +106,7 @@ teachers.post(
   zValidator('json', teacherSchemas.createTeacherSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
       // Authorization: Principal only
@@ -150,7 +150,7 @@ teachers.patch(
   zValidator('json', teacherSchemas.updateTeacherSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
       // Authorization: Principal only
@@ -193,7 +193,7 @@ teachers.patch(
  */
 teachers.post('/:id/disable', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
     
     // Authorization: Principal only
@@ -233,7 +233,7 @@ teachers.post('/:id/disable', requireAuth, async (c) => {
  */
 teachers.post('/:id/reactivate', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
     
     // Authorization: Principal only
@@ -276,7 +276,7 @@ teachers.post('/:id/reactivate', requireAuth, async (c) => {
  */
 teachers.post('/:id/reset-password', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
     
     // Authorization: Principal only
@@ -317,7 +317,7 @@ teachers.post('/:id/reset-password', requireAuth, async (c) => {
  */
 teachers.get('/:id/assignments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     // Fetch teacher to verify existence (tenant-scoped)

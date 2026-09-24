@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as subjectService from './subject.service';
 import * as subjectSchemas from './academic.schemas';
-import { requireAuth, getTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requireRole } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
@@ -29,7 +29,7 @@ const subjects = new Hono<AuthContext>();
  */
 subjects.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     const filters = {
       status: c.req.query('status') as 'active' | 'inactive' | undefined,
@@ -50,7 +50,7 @@ subjects.get('/', requireAuth, async (c) => {
  */
 subjects.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id')!; // Route guarantees id exists
     
     const subject = await subjectService.getById(c.env.DB, id, tenant.schoolId);
@@ -75,7 +75,7 @@ subjects.post(
   zValidator('json', subjectSchemas.createSubjectSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');
@@ -111,7 +111,7 @@ subjects.patch(
   zValidator('json', subjectSchemas.updateSubjectSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       
       // Authorization: Principal only
       requireRole(tenant, 'principal');

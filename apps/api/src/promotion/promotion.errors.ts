@@ -246,6 +246,14 @@ export class PromotionError extends Error {
     );
   }
 
+  static activationFailed(reason: string): PromotionError {
+    return new PromotionError(
+      `Year activation failed: ${reason}`,
+      'PROMOTION_ACTIVATION_FAILED',
+      500
+    );
+  }
+
   // Authorization errors
   static unauthorized(action: string): PromotionError {
     return new PromotionError(

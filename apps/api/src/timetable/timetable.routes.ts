@@ -18,7 +18,7 @@
  */
 
 import { Hono } from 'hono';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as timetableService from './timetable.service';
 import { TimetableError } from './timetable.errors';
 import {
@@ -37,7 +37,7 @@ const timetable = new Hono<AuthContext>();
  */
 timetable.post('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
     const validated = createTimetableSchema.parse(body);
 
@@ -63,7 +63,7 @@ timetable.post('/', requireAuth, async (c) => {
  */
 timetable.get('/', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const academicYearId = c.req.query('academic_year_id');
     const classroomId = c.req.query('classroom_id');
     const status = c.req.query('status') as 'draft' | 'published' | 'archived' | undefined;
@@ -93,7 +93,7 @@ timetable.get('/', requireAuth, async (c) => {
  */
 timetable.get('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -116,7 +116,7 @@ timetable.get('/:id', requireAuth, async (c) => {
  */
 timetable.put('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -145,7 +145,7 @@ timetable.put('/:id', requireAuth, async (c) => {
  */
 timetable.delete('/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -168,7 +168,7 @@ timetable.delete('/:id', requireAuth, async (c) => {
  */
 timetable.post('/:id/new-version', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -191,7 +191,7 @@ timetable.post('/:id/new-version', requireAuth, async (c) => {
  */
 timetable.post('/:id/publish', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -214,7 +214,7 @@ timetable.post('/:id/publish', requireAuth, async (c) => {
  */
 timetable.post('/:id/archive', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -237,7 +237,7 @@ timetable.post('/:id/archive', requireAuth, async (c) => {
  */
 timetable.get('/:id/entries', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -260,7 +260,7 @@ timetable.get('/:id/entries', requireAuth, async (c) => {
  */
 timetable.post('/:id/entries', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
     if (!id) return c.json({ error: 'Timetable ID required' }, 400);
 
@@ -289,7 +289,7 @@ timetable.post('/:id/entries', requireAuth, async (c) => {
  */
 timetable.put('/:id/entries/:entryId', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const entryId = c.req.param('entryId');
     if (!entryId) return c.json({ error: 'Entry ID required' }, 400);
 
@@ -318,7 +318,7 @@ timetable.put('/:id/entries/:entryId', requireAuth, async (c) => {
  */
 timetable.delete('/:id/entries/:entryId', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const entryId = c.req.param('entryId');
     if (!entryId) return c.json({ error: 'Entry ID required' }, 400);
 
@@ -341,7 +341,7 @@ timetable.delete('/:id/entries/:entryId', requireAuth, async (c) => {
  */
 timetable.get('/classrooms/:classroomId/timetable', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const classroomId = c.req.param('classroomId');
     if (!classroomId) return c.json({ error: 'Classroom ID required' }, 400);
 
@@ -364,7 +364,7 @@ timetable.get('/classrooms/:classroomId/timetable', requireAuth, async (c) => {
  */
 timetable.get('/me/timetable', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
 
     const result = await timetableService.getMyTimetable(c.env.DB, tenant);
 

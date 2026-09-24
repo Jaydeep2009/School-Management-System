@@ -24,8 +24,7 @@ async function findTeachingAssignment(
     db,
     classroomId,
     subjectId,
-    schoolId,
-    'active'
+    schoolId
   );
 }
 
@@ -293,7 +292,6 @@ export async function canViewStudentMarks(
       {
         teacher_id: tenant.userId,
         classroom_id: classroomId,
-        status: 'active',
       }
     );
 

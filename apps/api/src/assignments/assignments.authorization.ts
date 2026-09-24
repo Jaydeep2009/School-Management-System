@@ -24,8 +24,7 @@ async function findTeachingAssignment(
     db,
     classroomId,
     subjectId,
-    schoolId,
-    'active'
+    schoolId
   );
 }
 

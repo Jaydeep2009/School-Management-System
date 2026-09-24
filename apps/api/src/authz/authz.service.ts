@@ -49,12 +49,7 @@ export function requireAnyRole(tenant: TenantContext, roles: UserRole[]): void {
  * Client-provided schoolId is NEVER trusted
  */
 export function canAccessSchool(tenant: TenantContext, schoolId: string): boolean {
-  // Super admin has platform-level access
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
-  // All other roles: must match tenant's school
+  // All roles: must match tenant's school
   return tenant.schoolId === schoolId;
 }
 
@@ -81,11 +76,6 @@ export async function canViewClassroom(
   tenant: TenantContext,
   context: ClassroomAccessContext
 ): Promise<boolean> {
-  // Super admin can view all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, context.schoolId)) {
     return false;
@@ -186,11 +176,6 @@ export async function canViewStudent(
   tenant: TenantContext,
   context: StudentAccessContext
 ): Promise<boolean> {
-  // Super admin can view all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, context.schoolId)) {
     return false;
@@ -365,11 +350,6 @@ export async function canViewAttendance(
   context: AttendanceAuthzContext,
   studentId?: string
 ): Promise<boolean> {
-  // Super admin can view all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, context.schoolId)) {
     return false;
@@ -450,11 +430,6 @@ export async function canModifyAttendance(
   tenant: TenantContext,
   context: AttendanceAuthzContext
 ): Promise<boolean> {
-  // Super admin can modify all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, context.schoolId)) {
     return false;
@@ -505,11 +480,6 @@ export async function canViewMarks(
   context: MarksAuthzContext,
   studentId?: string
 ): Promise<boolean> {
-  // Super admin can view all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, context.schoolId)) {
     return false;
@@ -585,11 +555,6 @@ export async function canModifyMarks(
   tenant: TenantContext,
   context: MarksAuthzContext
 ): Promise<boolean> {
-  // Super admin can modify all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, context.schoolId)) {
     return false;
@@ -644,11 +609,6 @@ export async function canViewFees(
   studentId: string,
   schoolId: string
 ): Promise<boolean> {
-  // Super admin can view all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, schoolId)) {
     return false;
@@ -692,11 +652,6 @@ export function canModifyFees(
   tenant: TenantContext,
   schoolId: string
 ): boolean {
-  // Super admin can modify all
-  if (tenant.role === 'super_admin') {
-    return true;
-  }
-
   // Must be same school
   if (!canAccessSchool(tenant, schoolId)) {
     return false;

@@ -4,7 +4,7 @@
  * Business logic for Super Admin school management and Principal provisioning
  */
 
-import type { TenantContext } from '../authz/authz.types';
+import type { SuperAdminContext } from '../auth/auth.types';
 import type {
   School,
   SchoolWithSettings,
@@ -59,7 +59,7 @@ function parseSchoolSettings(school: School): SchoolWithSettings {
 export async function createSchool(
   db: D1Database,
   data: CreateSchoolRequest,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<SchoolWithSettings> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 
@@ -99,7 +99,7 @@ export async function createSchool(
 export async function listSchools(
   db: D1Database,
   filters: SchoolFilters,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<SchoolWithSettings[]> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 
@@ -114,7 +114,7 @@ export async function listSchools(
 export async function getSchool(
   db: D1Database,
   schoolId: string,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<SchoolWithSettings> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 
@@ -134,7 +134,7 @@ export async function updateSchool(
   db: D1Database,
   schoolId: string,
   data: UpdateSchoolRequest,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<SchoolWithSettings> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 
@@ -179,7 +179,7 @@ export async function updateSchool(
 export async function suspendSchool(
   db: D1Database,
   schoolId: string,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<SchoolWithSettings> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 
@@ -211,7 +211,7 @@ export async function suspendSchool(
 export async function activateSchool(
   db: D1Database,
   schoolId: string,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<SchoolWithSettings> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 
@@ -246,7 +246,7 @@ export async function activateSchool(
 export async function archiveSchool(
   db: D1Database,
   schoolId: string,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<SchoolWithSettings> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 
@@ -284,7 +284,7 @@ export async function createPrincipal(
   db: D1Database,
   schoolId: string,
   data: CreatePrincipalRequest,
-  tenant: TenantContext
+  tenant: SuperAdminContext
 ): Promise<PrincipalCreationResponse> {
   schoolsAuthz.ensureSuperAdmin(tenant);
 

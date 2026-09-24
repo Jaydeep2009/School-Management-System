@@ -173,8 +173,9 @@ export async function create(
   const now = new Date().toISOString();
 
   try {
-    // Create user record
-    await db
+    // ATOMICITY: Use db.batch() to ensure both INSERTs succeed or both fail
+    // This prevents orphaned user records if profile creation fails
+    const userInsert = db
       .prepare(
         `INSERT INTO users (
           id, school_id, login_id, role, status,
@@ -195,24 +196,34 @@ export async function create(
         0, // token_version
         now,
         now
-      )
-      .run();
+      );
 
-    // Create teacher profile (user_id is the primary key)
-    await teacherRepo.create(db, {
-      id: userId, // user_id is the PK, but type expects id
-      user_id: userId,
-      school_id: schoolId,
-      employee_code: employeeCode,
-      first_name: data.first_name,
-      middle_name: data.middle_name || null,
-      last_name: data.last_name,
-      phone: data.phone || null,
-      date_of_birth: data.date_of_birth || null,
-      dob_md: extractMonthDay(data.date_of_birth),
-      joining_date: data.joining_date || null,
-      status: 'active',
-    });
+    const profileInsert = db
+      .prepare(
+        `INSERT INTO teacher_profiles (
+          user_id, school_id, employee_code, first_name, middle_name, last_name,
+          phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        userId,
+        schoolId,
+        employeeCode,
+        data.first_name,
+        data.middle_name || null,
+        data.last_name,
+        data.phone || null,
+        data.date_of_birth || null,
+        extractMonthDay(data.date_of_birth),
+        data.joining_date || null,
+        'active',
+        now,
+        now
+      );
+
+    // Execute both INSERTs in a single atomic transaction
+    await db.batch([userInsert, profileInsert]);
 
     // SECURITY: Temporary password is returned ONCE and never logged
     return {
@@ -223,8 +234,8 @@ export async function create(
       temporary_password: temporaryPassword,
     };
   } catch (error) {
-    // If anything fails, the transaction should rollback
-    // D1 doesn't support explicit transactions, but we can detect failures
+    // If anything fails, the entire transaction is rolled back automatically
+    // No orphaned records will be created
     throw new TeacherError(
       'Failed to create teacher account',
       'CREATION_FAILED',

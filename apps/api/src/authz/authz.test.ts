@@ -308,12 +308,15 @@ describe('Authorization - Tenant Isolation', () => {
     const tenant: TenantContext = {
       userId: 'admin1',
       role: 'super_admin',
-      schoolId: 'platform',
+      schoolId: 'school1', // Super admin accessing school1
       sessionId: 'session1',
     };
 
+    // Super admin can access the school they're scoped to
     expect(authzService.canAccessSchool(tenant, 'school1')).toBe(true);
-    expect(authzService.canAccessSchool(tenant, 'school2')).toBe(true);
+    
+    // But cannot access other schools without proper scoping
+    expect(authzService.canAccessSchool(tenant, 'school2')).toBe(false);
   });
 
   it('should throw on tenant mismatch with ensureSchoolAccess', () => {
@@ -1501,5 +1504,756 @@ describe('Authorization - Error Types', () => {
     errors.forEach(error => {
       expect(error.httpStatus).toBe(403);
     });
+  });
+});
+
+
+/**
+ * Phase 2 - Cross-School Authorization Tests
+ * 
+ * These tests verify that users cannot access data from other schools
+ * Critical for multi-tenant security
+ */
+describe('Authorization - Cross-School Attack Prevention', () => {
+  let db: MockDatabase;
+
+  beforeEach(() => {
+    db = new MockDatabase();
+  });
+
+  it('should deny School A teacher accessing School B marks', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacherA1',
+      role: 'teacher',
+      schoolId: 'schoolA',
+      sessionId: 'session1',
+    };
+
+    // Teacher belongs to School A
+    db.addTeacherProfile({
+      id: 'teacherProfA1',
+      user_id: 'teacherA1',
+      school_id: 'schoolA',
+      employee_id: 'EMP001',
+      first_name: 'Teacher',
+      last_name: 'A',
+    });
+
+    // Has teaching assignment in School A
+    db.addTeachingAssignment({
+      id: 'assignA1',
+      teacher_id: 'teacherProfA1',
+      classroom_id: 'classA1',
+      subject_id: 'math',
+      school_id: 'schoolA',
+      academic_year: '2024',
+      status: 'active',
+    });
+
+    // Tries to access School B marks
+    const contextSchoolB: MarksAuthzContext = {
+      classroomId: 'classB1',
+      subjectId: 'math',
+      schoolId: 'schoolB', // Different school!
+    };
+
+    const canView = await authzService.canViewMarks(
+      db as unknown as D1Database,
+      tenant,
+      contextSchoolB
+    );
+    const canModify = await authzService.canModifyMarks(
+      db as unknown as D1Database,
+      tenant,
+      contextSchoolB
+    );
+
+    expect(canView).toBe(false);
+    expect(canModify).toBe(false);
+  });
+
+  it('should deny School A teacher accessing School B attendance', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacherA1',
+      role: 'teacher',
+      schoolId: 'schoolA',
+      sessionId: 'session1',
+    };
+
+    db.addTeacherProfile({
+      id: 'teacherProfA1',
+      user_id: 'teacherA1',
+      school_id: 'schoolA',
+      employee_id: 'EMP001',
+      first_name: 'Teacher',
+      last_name: 'A',
+    });
+
+    db.addTeachingAssignment({
+      id: 'assignA1',
+      teacher_id: 'teacherProfA1',
+      classroom_id: 'classA1',
+      subject_id: 'math',
+      school_id: 'schoolA',
+      academic_year: '2024',
+      status: 'active',
+    });
+
+    // Tries to access School B attendance
+    const contextSchoolB: AttendanceAuthzContext = {
+      classroomId: 'classB1',
+      subjectId: 'math',
+      schoolId: 'schoolB',
+    };
+
+    const canView = await authzService.canViewAttendance(
+      db as unknown as D1Database,
+      tenant,
+      contextSchoolB
+    );
+    const canModify = await authzService.canModifyAttendance(
+      db as unknown as D1Database,
+      tenant,
+      contextSchoolB
+    );
+
+    expect(canView).toBe(false);
+    expect(canModify).toBe(false);
+  });
+
+  it('should deny School A principal accessing School B data', async () => {
+    const tenant: TenantContext = {
+      userId: 'principalA1',
+      role: 'principal',
+      schoolId: 'schoolA',
+      sessionId: 'session1',
+    };
+
+    // Principal tries to access School B classroom
+    const contextSchoolB: ClassroomAccessContext = {
+      classroomId: 'classB1',
+      schoolId: 'schoolB',
+    };
+
+    const canView = await authzService.canViewClassroom(
+      db as unknown as D1Database,
+      tenant,
+      contextSchoolB
+    );
+
+    expect(canView).toBe(false);
+  });
+
+  it('should deny School A student accessing School B student data', async () => {
+    const tenant: TenantContext = {
+      userId: 'studentA1',
+      role: 'student',
+      schoolId: 'schoolA',
+      sessionId: 'session1',
+    };
+
+    db.addStudentProfile({
+      id: 'studentProfA1',
+      user_id: 'studentA1',
+      school_id: 'schoolA',
+      admission_number: 'ADM001',
+      first_name: 'Student',
+      last_name: 'A',
+    });
+
+    // Tries to access School B student
+    const contextSchoolB: StudentAccessContext = {
+      studentId: 'studentProfB1',
+      schoolId: 'schoolB',
+    };
+
+    const canView = await authzService.canViewStudent(
+      db as unknown as D1Database,
+      tenant,
+      contextSchoolB
+    );
+
+    expect(canView).toBe(false);
+  });
+
+  it('should deny School A student viewing School B fees', async () => {
+    const tenant: TenantContext = {
+      userId: 'studentA1',
+      role: 'student',
+      schoolId: 'schoolA',
+      sessionId: 'session1',
+    };
+
+    db.addStudentProfile({
+      id: 'studentProfA1',
+      user_id: 'studentA1',
+      school_id: 'schoolA',
+      admission_number: 'ADM001',
+      first_name: 'Student',
+      last_name: 'A',
+    });
+
+    // Tries to view School B fees
+    const canView = await authzService.canViewFees(
+      db as unknown as D1Database,
+      tenant,
+      'studentProfB1',
+      'schoolB' // Different school
+    );
+
+    expect(canView).toBe(false);
+  });
+});
+
+/**
+ * Phase 2 - Teaching Assignment Denial Tests
+ * 
+ * Verify that teachers without proper assignments are denied access
+ */
+describe('Authorization - Teaching Assignment Denial', () => {
+  let db: MockDatabase;
+
+  beforeEach(() => {
+    db = new MockDatabase();
+  });
+
+  it('should deny teacher accessing marks for wrong subject', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addTeacherProfile({
+      id: 'teacherProf1',
+      user_id: 'teacher1',
+      school_id: 'school1',
+      employee_id: 'EMP001',
+      first_name: 'John',
+      last_name: 'Doe',
+    });
+
+    // Teacher has math assignment
+    db.addTeachingAssignment({
+      id: 'assign1',
+      teacher_id: 'teacherProf1',
+      classroom_id: 'class1',
+      subject_id: 'math',
+      school_id: 'school1',
+      academic_year: '2024',
+      status: 'active',
+    });
+
+    // Tries to access science marks (no assignment)
+    const context: MarksAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'science', // Wrong subject!
+      schoolId: 'school1',
+    };
+
+    const canModify = await authzService.canModifyMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    // Teacher can VIEW as class teacher might be needed, but cannot MODIFY
+    expect(canModify).toBe(false);
+  });
+
+  it('should deny teacher accessing attendance for wrong classroom', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addTeacherProfile({
+      id: 'teacherProf1',
+      user_id: 'teacher1',
+      school_id: 'school1',
+      employee_id: 'EMP001',
+      first_name: 'John',
+      last_name: 'Doe',
+    });
+
+    // Teacher has assignment in class1
+    db.addTeachingAssignment({
+      id: 'assign1',
+      teacher_id: 'teacherProf1',
+      classroom_id: 'class1',
+      subject_id: 'math',
+      school_id: 'school1',
+      academic_year: '2024',
+      status: 'active',
+    });
+
+    // Tries to access class2 attendance (no assignment)
+    const context: AttendanceAuthzContext = {
+      classroomId: 'class2', // Wrong classroom!
+      subjectId: 'math',
+      schoolId: 'school1',
+    };
+
+    const canView = await authzService.canViewAttendance(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+    const canModify = await authzService.canModifyAttendance(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    expect(canView).toBe(false);
+    expect(canModify).toBe(false);
+  });
+
+  it('should deny teacher without any assignments', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    // Teacher exists but has NO assignments
+    db.addTeacherProfile({
+      id: 'teacherProf1',
+      user_id: 'teacher1',
+      school_id: 'school1',
+      employee_id: 'EMP001',
+      first_name: 'John',
+      last_name: 'Doe',
+    });
+
+    const marksContext: MarksAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'math',
+      schoolId: 'school1',
+    };
+
+    const attendanceContext: AttendanceAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'math',
+      schoolId: 'school1',
+    };
+
+    const canViewMarks = await authzService.canViewMarks(
+      db as unknown as D1Database,
+      tenant,
+      marksContext
+    );
+    const canModifyMarks = await authzService.canModifyMarks(
+      db as unknown as D1Database,
+      tenant,
+      marksContext
+    );
+    const canViewAttendance = await authzService.canViewAttendance(
+      db as unknown as D1Database,
+      tenant,
+      attendanceContext
+    );
+    const canModifyAttendance = await authzService.canModifyAttendance(
+      db as unknown as D1Database,
+      tenant,
+      attendanceContext
+    );
+
+    expect(canViewMarks).toBe(false);
+    expect(canModifyMarks).toBe(false);
+    expect(canViewAttendance).toBe(false);
+    expect(canModifyAttendance).toBe(false);
+  });
+});
+
+/**
+ * Phase 2 - Role-Based Denial Tests
+ * 
+ * Verify that roles are properly enforced
+ */
+describe('Authorization - Role-Based Denials', () => {
+  let db: MockDatabase;
+
+  beforeEach(() => {
+    db = new MockDatabase();
+  });
+
+  it('should deny student modifying any marks', async () => {
+    const tenant: TenantContext = {
+      userId: 'student1',
+      role: 'student',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addStudentProfile({
+      id: 'studentProf1',
+      user_id: 'student1',
+      school_id: 'school1',
+      admission_number: 'ADM001',
+      first_name: 'Jane',
+      last_name: 'Smith',
+    });
+
+    const context: MarksAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'math',
+      schoolId: 'school1',
+    };
+
+    const canModify = await authzService.canModifyMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    expect(canModify).toBe(false);
+  });
+
+  it('should deny student modifying any attendance', async () => {
+    const tenant: TenantContext = {
+      userId: 'student1',
+      role: 'student',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addStudentProfile({
+      id: 'studentProf1',
+      user_id: 'student1',
+      school_id: 'school1',
+      admission_number: 'ADM001',
+      first_name: 'Jane',
+      last_name: 'Smith',
+    });
+
+    const context: AttendanceAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'math',
+      schoolId: 'school1',
+    };
+
+    const canModify = await authzService.canModifyAttendance(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    expect(canModify).toBe(false);
+  });
+
+  it('should deny student viewing another student profile', async () => {
+    const tenant: TenantContext = {
+      userId: 'student1',
+      role: 'student',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addStudentProfile({
+      id: 'studentProf1',
+      user_id: 'student1',
+      school_id: 'school1',
+      admission_number: 'ADM001',
+      first_name: 'Jane',
+      last_name: 'Smith',
+    });
+
+    // Try to access another student
+    const context: StudentAccessContext = {
+      studentId: 'studentProf2', // Different student
+      schoolId: 'school1',
+    };
+
+    const canView = await authzService.canViewStudent(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    expect(canView).toBe(false);
+  });
+
+  it('should deny student viewing another student fees', async () => {
+    const tenant: TenantContext = {
+      userId: 'student1',
+      role: 'student',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addStudentProfile({
+      id: 'studentProf1',
+      user_id: 'student1',
+      school_id: 'school1',
+      admission_number: 'ADM001',
+      first_name: 'Jane',
+      last_name: 'Smith',
+    });
+
+    // Try to view another student's fees
+    const canView = await authzService.canViewFees(
+      db as unknown as D1Database,
+      tenant,
+      'studentProf2', // Different student
+      'school1'
+    );
+
+    expect(canView).toBe(false);
+  });
+
+  it('should deny teacher modifying fees', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addTeacherProfile({
+      id: 'teacherProf1',
+      user_id: 'teacher1',
+      school_id: 'school1',
+      employee_id: 'EMP001',
+      first_name: 'John',
+      last_name: 'Doe',
+    });
+
+    // canModifyFees returns boolean indicating only principal can modify
+    const canModify = authzService.canModifyFees(tenant, 'school1');
+
+    expect(canModify).toBe(false);
+  });
+
+  it('should only allow principal to modify fees', async () => {
+    const principalTenant: TenantContext = {
+      userId: 'principal1',
+      role: 'principal',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    const teacherTenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    const studentTenant: TenantContext = {
+      userId: 'student1',
+      role: 'student',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    expect(authzService.canModifyFees(principalTenant, 'school1')).toBe(true);
+    expect(authzService.canModifyFees(teacherTenant, 'school1')).toBe(false);
+    expect(authzService.canModifyFees(studentTenant, 'school1')).toBe(false);
+  });
+});
+
+/**
+ * Phase 2 - Class Teacher Privilege Tests
+ * 
+ * Verify VIEW vs MODIFY distinction for class teachers
+ */
+describe('Authorization - Class Teacher Privileges', () => {
+  let db: MockDatabase;
+
+  beforeEach(() => {
+    db = new MockDatabase();
+  });
+
+  it('should allow class teacher VIEW but deny MODIFY for non-assigned subjects', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addTeacherProfile({
+      id: 'teacherProf1',
+      user_id: 'teacher1',
+      school_id: 'school1',
+      employee_id: 'EMP001',
+      first_name: 'John',
+      last_name: 'Doe',
+    });
+
+    // Teacher is class teacher for class1
+    db.addClassroom({
+      id: 'class1',
+      school_id: 'school1',
+      class_teacher_id: 'teacherProf1',
+      name: 'Class 10',
+      section: 'A',
+      academic_year: '2024',
+    });
+
+    // No teaching assignment for science
+    const context: MarksAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'science',
+      schoolId: 'school1',
+    };
+
+    const canViewMarks = await authzService.canViewMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+    const canModifyMarks = await authzService.canModifyMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    const attendanceContext: AttendanceAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'science',
+      schoolId: 'school1',
+    };
+
+    const canViewAttendance = await authzService.canViewAttendance(
+      db as unknown as D1Database,
+      tenant,
+      attendanceContext
+    );
+    const canModifyAttendance = await authzService.canModifyAttendance(
+      db as unknown as D1Database,
+      tenant,
+      attendanceContext
+    );
+
+    // Class teacher can VIEW but cannot MODIFY
+    expect(canViewMarks).toBe(true);
+    expect(canModifyMarks).toBe(false);
+    expect(canViewAttendance).toBe(true);
+    expect(canModifyAttendance).toBe(false);
+  });
+
+  it('should allow class teacher both VIEW and MODIFY for assigned subjects', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addTeacherProfile({
+      id: 'teacherProf1',
+      user_id: 'teacher1',
+      school_id: 'school1',
+      employee_id: 'EMP001',
+      first_name: 'John',
+      last_name: 'Doe',
+    });
+
+    // Teacher is class teacher
+    db.addClassroom({
+      id: 'class1',
+      school_id: 'school1',
+      class_teacher_id: 'teacherProf1',
+      name: 'Class 10',
+      section: 'A',
+      academic_year: '2024',
+    });
+
+    // AND has teaching assignment for math
+    db.addTeachingAssignment({
+      id: 'assign1',
+      teacher_id: 'teacherProf1',
+      classroom_id: 'class1',
+      subject_id: 'math',
+      school_id: 'school1',
+      academic_year: '2024',
+      status: 'active',
+    });
+
+    const context: MarksAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'math',
+      schoolId: 'school1',
+    };
+
+    const canViewMarks = await authzService.canViewMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+    const canModifyMarks = await authzService.canModifyMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    // Class teacher WITH assignment can both VIEW and MODIFY
+    expect(canViewMarks).toBe(true);
+    expect(canModifyMarks).toBe(true);
+  });
+
+  it('should allow non-class-teacher with assignment to VIEW and MODIFY', async () => {
+    const tenant: TenantContext = {
+      userId: 'teacher1',
+      role: 'teacher',
+      schoolId: 'school1',
+      sessionId: 'session1',
+    };
+
+    db.addTeacherProfile({
+      id: 'teacherProf1',
+      user_id: 'teacher1',
+      school_id: 'school1',
+      employee_id: 'EMP001',
+      first_name: 'John',
+      last_name: 'Doe',
+    });
+
+    // Teacher is NOT class teacher but has assignment
+    db.addClassroom({
+      id: 'class1',
+      school_id: 'school1',
+      class_teacher_id: 'otherTeacher', // Different teacher
+      name: 'Class 10',
+      section: 'A',
+      academic_year: '2024',
+    });
+
+    db.addTeachingAssignment({
+      id: 'assign1',
+      teacher_id: 'teacherProf1',
+      classroom_id: 'class1',
+      subject_id: 'math',
+      school_id: 'school1',
+      academic_year: '2024',
+      status: 'active',
+    });
+
+    const context: MarksAuthzContext = {
+      classroomId: 'class1',
+      subjectId: 'math',
+      schoolId: 'school1',
+    };
+
+    const canViewMarks = await authzService.canViewMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+    const canModifyMarks = await authzService.canModifyMarks(
+      db as unknown as D1Database,
+      tenant,
+      context
+    );
+
+    // Subject teacher (not class teacher) can both VIEW and MODIFY their subject
+    expect(canViewMarks).toBe(true);
+    expect(canModifyMarks).toBe(true);
   });
 });

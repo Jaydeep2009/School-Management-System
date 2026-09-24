@@ -5,7 +5,7 @@
  * SECURITY: Audit entries are immutable (enforced by DB triggers)
  */
 
-import type { TenantContext } from '../../auth/auth.types';
+import type { TenantContext, SuperAdminContext } from '../../auth/auth.types';
 
 /**
  * Generate a random UUID
@@ -135,7 +135,7 @@ export interface AuditLogEntry {
  * Create audit log entry
  * 
  * @param db - Database instance
- * @param tenant - Tenant context (actor information)
+ * @param tenant - Tenant context (actor information) or SuperAdminContext
  * @param action - Action performed
  * @param entity - Entity type
  * @param entityId - Entity ID (null for bulk operations)
@@ -144,7 +144,7 @@ export interface AuditLogEntry {
  */
 export async function logAudit(
   db: D1Database,
-  tenant: TenantContext,
+  tenant: TenantContext | SuperAdminContext,
   action: AuditAction,
   entity: AuditEntity,
   entityId: string | null,

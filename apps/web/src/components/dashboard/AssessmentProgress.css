@@ -1,0 +1,43 @@
+.assessment-progress {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.assessment-progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assessment-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.assessment-progress-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.assessment-progress-stats {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.assessment-progress-bar {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.assessment-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}

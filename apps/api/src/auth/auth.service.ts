@@ -140,16 +140,25 @@ export async function login(
       sessionData.refreshSecret
     );
     
-    // Create audit log
-    await authRepo.createAuditLog(env.DB, {
-      userId: user.id,
-      schoolId: user.school_id,
-      entityType: 'session',
-      entityId: sessionData.id,
-      action: 'LOGIN',
-      before: null,
-      after: null,
-    });
+    // Best-effort audit log (don't fail login if audit fails)
+    try {
+      await authRepo.createAuditLog(env.DB, {
+        userId: user.id,
+        schoolId: user.school_id,
+        entityType: 'session',
+        entityId: sessionData.id,
+        action: 'LOGIN',
+        before: null,
+        after: null,
+      });
+    } catch (auditError) {
+      logger.warn('Failed to create audit log during login', {
+        requestId,
+        userId: user.id,
+        sessionId: sessionData.id,
+        error: auditError instanceof Error ? auditError.message : 'Unknown error',
+      });
+    }
     
     logger.info(AuthEvents.LOGIN_SUCCESS, {
       requestId,
@@ -269,22 +278,39 @@ export async function activate(
     // Hash new password
     const passwordHash = await passwordService.hashPassword(request.newPassword);
     
-    // Activate account
+    // Activate account - THIS IS THE CRITICAL OPERATION
     await authRepo.activateUser(env.DB, user.id, passwordHash);
     
-    // Revoke all existing sessions (if any)
-    await authRepo.revokeAllUserSessions(env.DB, user.id);
+    // Best-effort cleanup operations (don't fail activation if these fail)
+    try {
+      // Revoke all existing sessions (if any)
+      await authRepo.revokeAllUserSessions(env.DB, user.id);
+    } catch (cleanupError) {
+      logger.warn('Failed to revoke sessions during activation', {
+        requestId,
+        userId: user.id,
+        error: cleanupError instanceof Error ? cleanupError.message : 'Unknown error',
+      });
+    }
     
-    // Create audit log
-    await authRepo.createAuditLog(env.DB, {
-      userId: user.id,
-      schoolId: user.school_id,
-      entityType: 'user',
-      entityId: user.id,
-      action: 'ACCOUNT_ACTIVATED',
-      before: null,
-      after: null,
-    });
+    try {
+      // Create audit log
+      await authRepo.createAuditLog(env.DB, {
+        userId: user.id,
+        schoolId: user.school_id,
+        entityType: 'user',
+        entityId: user.id,
+        action: 'ACCOUNT_ACTIVATED',
+        before: null,
+        after: null,
+      });
+    } catch (auditError) {
+      logger.warn('Failed to create audit log during activation', {
+        requestId,
+        userId: user.id,
+        error: auditError instanceof Error ? auditError.message : 'Unknown error',
+      });
+    }
     
     logger.info(AuthEvents.ACTIVATION_SUCCESS, {
       requestId,
@@ -389,22 +415,39 @@ export async function changePassword(
     // Hash new password
     const passwordHash = await passwordService.hashPassword(request.newPassword);
     
-    // Update password and increment token version
+    // Update password and increment token version (CRITICAL)
     await authRepo.updateUserPassword(env.DB, userId, passwordHash);
     
-    // Revoke all existing sessions
-    await authRepo.revokeAllUserSessions(env.DB, userId);
+    // Best-effort operations
+    try {
+      // Revoke all existing sessions
+      await authRepo.revokeAllUserSessions(env.DB, userId);
+    } catch (cleanupError) {
+      logger.warn('Failed to revoke sessions during password change', {
+        requestId,
+        userId,
+        error: cleanupError instanceof Error ? cleanupError.message : 'Unknown error',
+      });
+    }
     
-    // Create audit log
-    await authRepo.createAuditLog(env.DB, {
-      userId: user.id,
-      schoolId: user.school_id,
-      entityType: 'user',
-      entityId: user.id,
-      action: 'PASSWORD_CHANGED',
-      before: null,
-      after: null,
-    });
+    try {
+      // Create audit log
+      await authRepo.createAuditLog(env.DB, {
+        userId: user.id,
+        schoolId: user.school_id,
+        entityType: 'user',
+        entityId: user.id,
+        action: 'PASSWORD_CHANGED',
+        before: null,
+        after: null,
+      });
+    } catch (auditError) {
+      logger.warn('Failed to create audit log during password change', {
+        requestId,
+        userId,
+        error: auditError instanceof Error ? auditError.message : 'Unknown error',
+      });
+    }
     
     logger.info(AuthEvents.PASSWORD_CHANGE_SUCCESS, {
       requestId,

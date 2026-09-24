@@ -1,11 +1,28 @@
 import { defineConfig } from 'vitest/config';
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-plugin';
 import path from 'path';
 
 export default defineConfig({
+  plugins: [
+    cloudflareTest(async () => {
+      const migrationsPath = path.join(__dirname, 'migrations');
+      const migrations = await readD1Migrations(migrationsPath);
+
+      return {
+        wrangler: {
+          configPath: './wrangler.jsonc',
+        },
+        miniflare: {
+          // Add a test-only binding for migrations so we can apply them
+          bindings: { TEST_MIGRATIONS: migrations },
+        },
+      };
+    }),
+  ],
   test: {
     globals: true,
-    environment: 'node',
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'],
+    setupFiles: ['./src/test-setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

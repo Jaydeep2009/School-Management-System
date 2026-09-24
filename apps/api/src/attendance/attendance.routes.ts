@@ -19,7 +19,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as attendanceService from './attendance.service';
 import * as attendanceSchemas from './attendance.schemas';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import { logAudit } from '../lib/audit/audit.service';
 import { AttendanceError } from './attendance.errors';
 import type {
@@ -40,7 +40,7 @@ attendance.post(
   zValidator('json', attendanceSchemas.createAttendanceSessionSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const body = c.req.valid('json') as CreateAttendanceSessionRequest;
       
       const session = await attendanceService.createSession(c.env.DB, tenant, body);
@@ -66,7 +66,7 @@ attendance.post(
  */
 attendance.get('/sessions', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     const filters = {
       academic_year_id: c.req.query('academic_year_id'),
@@ -95,7 +95,7 @@ attendance.get('/sessions', requireAuth, async (c) => {
  */
 attendance.get('/sessions/:id', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const sessionId = c.req.param('id')!;
     
     const session = await attendanceService.getSessionById(c.env.DB, sessionId, tenant);
@@ -117,7 +117,7 @@ attendance.get('/sessions/:id', requireAuth, async (c) => {
  */
 attendance.get('/sessions/:id/entries', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const sessionId = c.req.param('id')!;
     
     const entries = await attendanceService.getSessionEntries(c.env.DB, sessionId, tenant);
@@ -143,7 +143,7 @@ attendance.put(
   zValidator('json', attendanceSchemas.markAttendanceSchema),
   async (c) => {
     try {
-      const tenant = getTenant(c);
+      const tenant = requireSchoolTenant(c);
       const sessionId = c.req.param('id')!;
       const body = c.req.valid('json') as MarkAttendanceRequest;
       
@@ -178,7 +178,7 @@ attendance.put(
  */
 attendance.post('/sessions/:id/lock', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const sessionId = c.req.param('id')!;
     
     await attendanceService.lockSession(c.env.DB, sessionId, tenant);
@@ -203,7 +203,7 @@ attendance.post('/sessions/:id/lock', requireAuth, async (c) => {
  */
 attendance.post('/sessions/:id/unlock', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const sessionId = c.req.param('id')!;
     
     await attendanceService.unlockSession(c.env.DB, sessionId, tenant);
@@ -228,7 +228,7 @@ attendance.post('/sessions/:id/unlock', requireAuth, async (c) => {
  */
 attendance.get('/students/:studentId/summary', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const studentId = c.req.param('studentId')!;
     
     const filters = {
@@ -263,7 +263,7 @@ attendance.get('/students/:studentId/summary', requireAuth, async (c) => {
  */
 attendance.get('/students/:studentId/subject-wise', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const studentId = c.req.param('studentId')!;
     
     const filters = {
@@ -295,7 +295,7 @@ attendance.get('/students/:studentId/subject-wise', requireAuth, async (c) => {
  */
 attendance.get('/classrooms/:classroomId/report', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const classroomId = c.req.param('classroomId')!;
     
     const filters = {

@@ -220,6 +220,42 @@ export async function publishTimetable(
 }
 
 /**
+ * Atomically archive existing published timetable and publish new one
+ * Prevents race condition where two concurrent publishes could both succeed
+ */
+export async function atomicArchiveAndPublish(
+  db: D1Database,
+  timetableId: string,
+  schoolId: string,
+  academicYearId: string,
+  classroomId: string
+): Promise<void> {
+  const now = Date.now();
+
+  // Atomic operation: archive any existing published, then publish new
+  await db.batch([
+    // Archive any existing published timetable for this classroom/year
+    db.prepare(
+      `UPDATE timetables
+       SET status = 'archived', archived_at = ?, updated_at = ?
+       WHERE school_id = ? 
+         AND academic_year_id = ? 
+         AND classroom_id = ? 
+         AND status = 'published'`
+    ).bind(now, now, schoolId, academicYearId, classroomId),
+
+    // Publish the new timetable
+    db.prepare(
+      `UPDATE timetables
+       SET status = 'published', published_at = ?, updated_at = ?
+       WHERE id = ? 
+         AND school_id = ? 
+         AND status = 'draft'`
+    ).bind(now, now, timetableId, schoolId)
+  ]);
+}
+
+/**
  * Archive timetable
  */
 export async function archiveTimetable(

@@ -17,7 +17,7 @@ import * as attendanceService from '../attendance/attendance.service';
 import * as marksService from '../marks/marks.service';
 import * as assignmentsService from '../assignments/assignments.service';
 import * as feesService from '../fees/fees.service';
-import { requireAuth, getTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import { AttendanceError } from '../attendance/attendance.errors';
 import { MarksError } from '../marks/marks.errors';
 import { AssignmentsError } from '../assignments/assignments.errors';
@@ -39,7 +39,7 @@ const me = new Hono<AuthContext>();
  */
 me.get('/profile', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     // Based on role, fetch appropriate profile
     if (tenant.role === 'teacher') {
@@ -103,7 +103,7 @@ me.get('/profile', requireAuth, async (c) => {
  */
 me.get('/attendance', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     const data = await attendanceService.getMyAttendance(c.env.DB, tenant);
     
@@ -129,7 +129,7 @@ me.get('/attendance', requireAuth, async (c) => {
  */
 me.get('/marks', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     const data = await marksService.getMyMarks(c.env.DB, tenant);
     
@@ -155,7 +155,7 @@ me.get('/marks', requireAuth, async (c) => {
  */
 me.get('/assignments', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     
     const data = await assignmentsService.getMyAssignments(c.env.DB, tenant);
     
@@ -180,7 +180,7 @@ me.get('/assignments', requireAuth, async (c) => {
  */
 me.get('/fees/:academicYearId', requireAuth, async (c) => {
   try {
-    const tenant = getTenant(c);
+    const tenant = requireSchoolTenant(c);
     const academicYearId = c.req.param('academicYearId');
     
     if (!academicYearId) {
