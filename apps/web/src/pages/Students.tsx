@@ -155,10 +155,18 @@ export function Students() {
       setImportLoading(true);
       setImportError(null);
 
+      console.log('Uploading file:', importFile.name);
       const response = await apiService.previewStudentsImport(importFile, {});
+      console.log('Preview response:', response);
+      
+      if (!response || !response.data) {
+        throw new Error('Invalid response from server');
+      }
+      
       setImportPreview(response.data);
       setImportStep('preview');
     } catch (err) {
+      console.error('Import error:', err);
       setImportError(err instanceof Error ? err.message : 'Failed to upload file');
     } finally {
       setImportLoading(false);
