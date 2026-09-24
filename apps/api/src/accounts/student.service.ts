@@ -174,8 +174,22 @@ export async function create(
     );
   }
 
-  // Generate temporary password
-  const temporaryPassword = codeGen.generateTemporaryPassword();
+  // Get school code for password formula
+  const school = await db
+    .prepare('SELECT code FROM schools WHERE id = ? LIMIT 1')
+    .bind(schoolId)
+    .first<{ code: string }>();
+  
+  if (!school) {
+    throw new StudentError(
+      'School not found',
+      'SCHOOL_NOT_FOUND',
+      404
+    );
+  }
+
+  // Generate predictable temporary password using formula: {ADMISSION_NUMBER}@{SCHOOL_CODE}
+  const temporaryPassword = codeGen.generatePredictablePassword(data.admission_number, school.code);
   const activationHash = await hashPassword(temporaryPassword);
   
   // Calculate activation expiry (7 days)
@@ -386,8 +400,22 @@ export async function reactivate(
     );
   }
 
-  // Generate new temporary password
-  const temporaryPassword = codeGen.generateTemporaryPassword();
+  // Get school code for password formula
+  const school = await db
+    .prepare('SELECT code FROM schools WHERE id = ? LIMIT 1')
+    .bind(schoolId)
+    .first<{ code: string }>();
+  
+  if (!school) {
+    throw new StudentError(
+      'School not found',
+      'SCHOOL_NOT_FOUND',
+      404
+    );
+  }
+
+  // Generate predictable temporary password using formula: {ADMISSION_NUMBER}@{SCHOOL_CODE}
+  const temporaryPassword = codeGen.generatePredictablePassword(student.admission_number, school.code);
   const activationHash = await hashPassword(temporaryPassword);
   
   // Calculate activation expiry (7 days)
@@ -470,8 +498,22 @@ export async function resetPassword(
     );
   }
 
-  // Generate new temporary password
-  const temporaryPassword = codeGen.generateTemporaryPassword();
+  // Get school code for password formula
+  const school = await db
+    .prepare('SELECT code FROM schools WHERE id = ? LIMIT 1')
+    .bind(schoolId)
+    .first<{ code: string }>();
+  
+  if (!school) {
+    throw new StudentError(
+      'School not found',
+      'SCHOOL_NOT_FOUND',
+      404
+    );
+  }
+
+  // Generate predictable temporary password using formula: {ADMISSION_NUMBER}@{SCHOOL_CODE}
+  const temporaryPassword = codeGen.generatePredictablePassword(student.admission_number, school.code);
   const activationHash = await hashPassword(temporaryPassword);
   
   // Calculate activation expiry (7 days)

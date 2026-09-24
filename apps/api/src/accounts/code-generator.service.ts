@@ -223,6 +223,25 @@ export function generateTemporaryPassword(): string {
 }
 
 /**
+ * Generate a predictable temporary password based on student/teacher information
+ * This makes it easy for principals to share credentials without manual communication
+ * 
+ * Formula: {ADMISSION_NUMBER}@{SCHOOL_CODE}
+ * Example: ADM001@GPS or 12345@GPS
+ * 
+ * For teachers: {EMPLOYEE_CODE}@{SCHOOL_CODE}
+ * Example: T000001@GPS
+ * 
+ * NOTE: Users MUST change password on first login (must_change_password = true)
+ */
+export function generatePredictablePassword(
+  identifier: string, // admission_number or employee_code
+  schoolCode: string
+): string {
+  return `${identifier}@${schoolCode}`;
+}
+
+/**
  * Verify a code format is valid
  * 
  * Teacher codes: T000001-T999999

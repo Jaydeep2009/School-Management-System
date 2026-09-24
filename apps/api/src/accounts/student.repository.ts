@@ -18,7 +18,9 @@ export async function findById(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number, 
+              first_name, middle_name, last_name,
+              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
               gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
@@ -43,7 +45,9 @@ export async function findByUserId(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number,
+              first_name, middle_name, last_name,
+              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
               gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
@@ -68,7 +72,9 @@ export async function findByStudentCode(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number,
+              first_name, middle_name, last_name,
+              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
               gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
@@ -93,7 +99,9 @@ export async function findByAdmissionNumber(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, student_code, admission_number,
+              first_name, middle_name, last_name,
+              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
               gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
               status, created_at, updated_at
        FROM student_profiles
@@ -119,31 +127,37 @@ export async function findAll(
     search?: string;
   }
 ): Promise<StudentProfile[]> {
-  let query = `SELECT user_id as id, user_id, school_id, student_code, admission_number, first_name, middle_name, last_name,
-                      gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
-                      status, created_at, updated_at
-               FROM student_profiles
-               WHERE school_id = ?`;
+  let query = `SELECT s.user_id as id, s.user_id, s.school_id, s.student_code, s.admission_number,
+                      s.first_name, s.middle_name, s.last_name,
+                      (s.first_name || COALESCE(' ' || s.middle_name, '') || ' ' || s.last_name) as full_name,
+                      s.gender, s.date_of_birth, s.dob_md, s.phone, s.email, s.address,
+                      s.parent_name, s.parent_phone, s.parent_email,
+                      s.status, s.created_at, s.updated_at,
+                      u.login_id
+               FROM student_profiles s
+               JOIN users u ON s.user_id = u.id
+               WHERE s.school_id = ?`;
   
   const bindings: unknown[] = [schoolId];
 
   if (filters?.status) {
-    query += ' AND status = ?';
+    query += ' AND s.status = ?';
     bindings.push(filters.status);
   }
 
   if (filters?.search) {
     query += ` AND (
-      first_name LIKE ? OR
-      last_name LIKE ? OR
-      student_code LIKE ? OR
-      admission_number LIKE ?
+      s.first_name LIKE ? OR
+      s.last_name LIKE ? OR
+      s.student_code LIKE ? OR
+      s.admission_number LIKE ? OR
+      u.login_id LIKE ?
     )`;
     const searchPattern = `%${filters.search}%`;
-    bindings.push(searchPattern, searchPattern, searchPattern, searchPattern);
+    bindings.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY s.created_at DESC';
 
   const result = await db
     .prepare(query)
