@@ -851,19 +851,19 @@ export function Students() {
                     <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                       <div style={{ padding: '16px', background: '#f0f9ff', borderRadius: '8px' }}>
                         <div style={{ fontSize: '24px', fontWeight: 700, color: '#0369a1' }}>
-                          {importPreview.summary?.total_rows || 0}
+                          {importPreview.total_rows || 0}
                         </div>
                         <div style={{ fontSize: '14px', color: '#64748b' }}>Total Rows</div>
                       </div>
                       <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: '8px' }}>
                         <div style={{ fontSize: '24px', fontWeight: 700, color: '#15803d' }}>
-                          {importPreview.summary?.valid_rows || 0}
+                          {importPreview.valid_rows || 0}
                         </div>
                         <div style={{ fontSize: '14px', color: '#64748b' }}>Valid Rows</div>
                       </div>
                       <div style={{ padding: '16px', background: '#fef2f2', borderRadius: '8px' }}>
                         <div style={{ fontSize: '24px', fontWeight: 700, color: '#b91c1c' }}>
-                          {importPreview.summary?.invalid_rows || 0}
+                          {importPreview.error_rows || 0}
                         </div>
                         <div style={{ fontSize: '14px', color: '#64748b' }}>Invalid Rows</div>
                       </div>
@@ -887,9 +887,9 @@ export function Students() {
                     <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                       <Button
                         onClick={handleCommitImport}
-                        disabled={importLoading || (importPreview.summary?.valid_rows || 0) === 0}
+                        disabled={importLoading || (importPreview.valid_rows || 0) === 0}
                       >
-                        {importLoading ? 'Committing...' : `Commit ${importPreview.summary?.valid_rows || 0} Students`}
+                        {importLoading ? 'Committing...' : `Commit ${importPreview.valid_rows || 0} Students`}
                       </Button>
                       <Button variant="secondary" onClick={resetImport}>
                         Cancel
