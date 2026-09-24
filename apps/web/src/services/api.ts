@@ -20,7 +20,8 @@ export class ApiService {
     this.baseUrl = baseUrl;
     
     // Initialize access token from localStorage if available
-    const storedToken = localStorage.getItem('accessToken');
+    // Check both regular and super admin tokens
+    const storedToken = localStorage.getItem('accessToken') || localStorage.getItem('superAdminToken');
     if (storedToken) {
       this.accessToken = storedToken;
     }

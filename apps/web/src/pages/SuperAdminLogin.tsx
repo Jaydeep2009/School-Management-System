@@ -31,12 +31,7 @@ export function SuperAdminLogin() {
     // Clear previous errors
     setError('');
 
-    // Validate inputs
-    if (!loginId.trim()) {
-      setError('Login ID is required');
-      return;
-    }
-
+    // Validate password (loginId is optional for simple auth)
     if (!password) {
       setError('Password is required');
       return;
@@ -45,7 +40,8 @@ export function SuperAdminLogin() {
     setIsSubmitting(true);
 
     try {
-      await login(loginId.trim(), password);
+      // Use loginId if provided, otherwise use empty string (simple auth)
+      await login(loginId.trim() || 'admin', password);
       // Navigation handled by useSuperAdminAuth hook
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
