@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Promotions List Page
  */
 
@@ -10,11 +10,13 @@ import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { apiService } from '../services/api';
 import { TrendingUp, Plus, ArrowRight } from 'lucide-react';
 
 export function Promotions() {
   const { user, logout } = useAuth();
+  const { selectedYear } = useAcademicYear();
   const navigate = useNavigate();
 
   const [batches, setBatches] = useState<any[]>([]);
@@ -23,13 +25,21 @@ export function Promotions() {
 
   useEffect(() => {
     loadBatches();
-  }, []);
+  }, [selectedYear?.id]);
 
   const loadBatches = async () => {
+    if (!selectedYear) {
+      setBatches([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiService.getPromotionBatches();
+      const response = await apiService.getPromotionBatches({
+        academic_year_id: selectedYear.id
+      });
       setBatches(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load promotion batches');
@@ -39,6 +49,17 @@ export function Promotions() {
   };
 
   if (!user) return null;
+
+  if (!selectedYear) {
+    return (
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+        <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+          <p style={{ fontSize: '16px', marginBottom: '8px' }}>Please select an academic year to view promotions</p>
+          <p style={{ fontSize: '14px' }}>Use the dropdown in the header to select a year</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -66,7 +87,9 @@ export function Promotions() {
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Promotions</h1>
-            <p style={{ fontSize: '14px', color: '#64748b' }}>Manage student promotions and academic year transitions</p>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>
+              Viewing promotions for: {selectedYear.label}
+            </p>
           </div>
           <Button onClick={() => navigate('/promotions/new')}>
             <Plus size={16} style={{ marginRight: '8px' }} />
@@ -188,8 +211,3 @@ export function Promotions() {
     </Layout>
   );
 }
-
-
-
-
-

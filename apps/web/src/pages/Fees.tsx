@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Fees Management Page - List Fee Charges and Record Payments
  */
 
@@ -10,11 +10,13 @@ import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { apiService } from '../services/api';
 import { DollarSign, Plus, CheckCircle, Folder } from 'lucide-react';
 
 export function Fees() {
   const { user, logout } = useAuth();
+  const { selectedYear } = useAcademicYear();
   const navigate = useNavigate();
 
   const [feeCharges, setFeeCharges] = useState<any[]>([]);
@@ -27,13 +29,21 @@ export function Fees() {
 
   useEffect(() => {
     loadFeeCharges();
-  }, []);
+  }, [selectedYear?.id]);
 
   const loadFeeCharges = async () => {
+    if (!selectedYear) {
+      setFeeCharges([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiService.getFeeCharges();
+      const response = await apiService.getFeeCharges({
+        academic_year_id: selectedYear.id
+      });
       setFeeCharges(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load fee charges');
@@ -48,9 +58,17 @@ export function Fees() {
       return;
     }
 
+    // Find the charge to get student_id and academic_year_id
+    const charge = feeCharges.find(c => c.id === chargeId);
+    if (!charge) {
+      alert('Charge not found');
+      return;
+    }
+
     try {
       await apiService.recordPayment({
-        fee_charge_id: chargeId,
+        student_id: charge.student_id,
+        academic_year_id: charge.academic_year_id,
         amount: paymentAmount,
         payment_method: paymentMethod,
         payment_date: new Date().toISOString().split('T')[0],
@@ -65,6 +83,17 @@ export function Fees() {
   };
 
   if (!user) return null;
+
+  if (!selectedYear) {
+    return (
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+        <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+          <p style={{ fontSize: '16px', marginBottom: '8px' }}>Please select an academic year to view fee charges</p>
+          <p style={{ fontSize: '14px' }}>Use the dropdown in the header to select a year</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -92,7 +121,9 @@ export function Fees() {
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Fees Management</h1>
-            <p style={{ fontSize: '14px', color: '#64748b' }}>Manage fee charges and payments</p>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>
+              Viewing fees for: {selectedYear.label}
+            </p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button variant="secondary" onClick={() => navigate('/fees/categories')}>
@@ -115,7 +146,7 @@ export function Fees() {
             {feeCharges.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
                 <DollarSign size={48} style={{ color: '#cbd5e1', marginBottom: '16px', margin: '0 auto' }} />
-                <p>No fee charges found</p>
+                <p>No fee charges found for this academic year</p>
                 <p style={{ fontSize: '14px', marginTop: '8px' }}>Click "New Charge" to create one</p>
               </div>
             ) : (
@@ -306,8 +337,3 @@ export function Fees() {
     </Layout>
   );
 }
-
-
-
-
-

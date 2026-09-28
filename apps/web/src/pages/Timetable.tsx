@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Timetable List Page
  */
 
@@ -10,11 +10,13 @@ import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { apiService } from '../services/api';
-import { Calendar, Plus, ArrowRight } from 'lucide-react';
+import { Calendar, Plus, ArrowRight, Image as ImageIcon } from 'lucide-react';
 
 export function Timetable() {
   const { user, logout } = useAuth();
+  const { selectedYear } = useAcademicYear();
   const navigate = useNavigate();
 
   const [timetables, setTimetables] = useState<any[]>([]);
@@ -23,13 +25,21 @@ export function Timetable() {
 
   useEffect(() => {
     loadTimetables();
-  }, []);
+  }, [selectedYear?.id]);
 
   const loadTimetables = async () => {
+    if (!selectedYear) {
+      setTimetables([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiService.getTimetables();
+      const response = await apiService.getTimetables({
+        academic_year_id: selectedYear.id
+      });
       setTimetables(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load timetables');
@@ -39,6 +49,17 @@ export function Timetable() {
   };
 
   if (!user) return null;
+
+  if (!selectedYear) {
+    return (
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+        <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+          <p style={{ fontSize: '16px', marginBottom: '8px' }}>Please select an academic year to view timetables</p>
+          <p style={{ fontSize: '14px' }}>Use the dropdown in the header to select a year</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -66,7 +87,9 @@ export function Timetable() {
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Timetable</h1>
-            <p style={{ fontSize: '14px', color: '#64748b' }}>Manage school timetables and schedules</p>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>
+              Viewing timetables for: {selectedYear.label}
+            </p>
           </div>
           <Button onClick={() => navigate('/timetable/new')}>
             <Plus size={16} style={{ marginRight: '8px' }} />
@@ -84,7 +107,7 @@ export function Timetable() {
               <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
                 <Calendar size={48} style={{ color: '#cbd5e1', marginBottom: '16px', margin: '0 auto' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No timetables</h3>
-                <p style={{ fontSize: '14px', marginBottom: '24px' }}>Create a timetable to manage class schedules</p>
+                <p style={{ fontSize: '14px', marginBottom: '24px' }}>Create a timetable to manage class schedules for this year</p>
                 <Button onClick={() => navigate('/timetable/new')}>Create Timetable</Button>
               </div>
             ) : (
@@ -105,7 +128,17 @@ export function Timetable() {
                       return (
                         <tr key={tt.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                           <td style={{ padding: '12px', fontSize: '14px', fontWeight: 500, color: '#0f172a' }}>
-                            {tt.name}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {tt.name}
+                              {tt.image_url && (
+                                <span title="Has timetable image">
+                                  <ImageIcon 
+                                    size={16} 
+                                    style={{ color: '#3b82f6' }} 
+                                  />
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td style={{ padding: '12px', fontSize: '14px', color: '#64748b' }}>
                             {tt.classroom_name}
@@ -172,8 +205,3 @@ export function Timetable() {
     </Layout>
   );
 }
-
-
-
-
-
