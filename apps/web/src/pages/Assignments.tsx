@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Assignments Page
  */
 
@@ -13,23 +13,32 @@ import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
 import type { Assignment } from '../types/entities';
 import { FileText, Plus } from 'lucide-react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 export function Assignments() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { selectedYear } = useAcademicYear();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadAssignments();
-  }, []);
+  }, [selectedYear?.id]);
 
   const loadAssignments = async () => {
+    if (!selectedYear) {
+      setAssignments([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiService.getAssignments({});
+      const params = { academic_year_id: selectedYear.id };
+      const response = await apiService.getAssignments(params);
       setAssignments(response.data || response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load assignments');
@@ -39,6 +48,17 @@ export function Assignments() {
   };
 
   if (!user) return null;
+
+  if (!selectedYear) {
+    return (
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+        <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+          <p style={{ fontSize: '16px', marginBottom: '8px' }}>Please select an academic year to view assignments</p>
+          <p style={{ fontSize: '14px' }}>Use the dropdown in the header to select a year</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
@@ -93,6 +113,7 @@ export function Assignments() {
     </Layout>
   );
 }
+
 
 
 

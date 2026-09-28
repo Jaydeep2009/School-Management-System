@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Teachers Management Page
  */
 
@@ -10,12 +10,14 @@ import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { apiService } from '../services/api';
 import type { Teacher } from '../types/entities';
 import { GraduationCap, Search, Plus } from 'lucide-react';
 
 export function Teachers() {
   const { user, logout } = useAuth();
+  const { selectedYear } = useAcademicYear();
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,7 +27,7 @@ export function Teachers() {
 
   useEffect(() => {
     loadTeachers();
-  }, [statusFilter]);
+  }, [statusFilter, selectedYear?.id]);
 
   const loadTeachers = async () => {
     try {
@@ -48,9 +50,10 @@ export function Teachers() {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      teacher.full_name.toLowerCase().includes(query) ||
-      teacher.login_id.toLowerCase().includes(query) ||
-      teacher.email?.toLowerCase().includes(query)
+      teacher.full_name?.toLowerCase().includes(query) ||
+      teacher.login_id?.toLowerCase().includes(query) ||
+      teacher.employee_code?.toLowerCase().includes(query) ||
+      teacher.phone?.toLowerCase().includes(query)
     );
   });
 
@@ -86,7 +89,7 @@ export function Teachers() {
                 <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
                 <input
                   type="text"
-                  placeholder="Search by name, login ID, or email..."
+                  placeholder="Search by name, login ID, employee code, or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -155,10 +158,10 @@ export function Teachers() {
                         Name
                       </th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
-                        Login ID
+                        Employee Code
                       </th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
-                        Email
+                        Login ID
                       </th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
                         Phone
@@ -179,16 +182,16 @@ export function Teachers() {
                         onClick={() => navigate(`/teachers/${teacher.id}`)}
                       >
                         <td style={{ padding: '16px' }}>
-                          <div style={{ fontWeight: 500, color: '#0f172a' }}>{teacher.full_name}</div>
+                          <div style={{ fontWeight: 500, color: '#0f172a' }}>{teacher.full_name || 'â€”'}</div>
                         </td>
                         <td style={{ padding: '16px', fontFamily: 'monospace', fontSize: '13px', color: '#64748b' }}>
-                          {teacher.login_id}
+                          {teacher.employee_code || 'â€”'}
+                        </td>
+                        <td style={{ padding: '16px', fontFamily: 'monospace', fontSize: '13px', color: '#64748b' }}>
+                          {teacher.login_id || 'â€”'}
                         </td>
                         <td style={{ padding: '16px', color: '#64748b' }}>
-                          {teacher.email || '—'}
-                        </td>
-                        <td style={{ padding: '16px', color: '#64748b' }}>
-                          {teacher.phone || '—'}
+                          {teacher.phone || 'â€”'}
                         </td>
                         <td style={{ padding: '16px' }}>
                           <span style={{
@@ -232,6 +235,7 @@ export function Teachers() {
     </Layout>
   );
 }
+
 
 
 

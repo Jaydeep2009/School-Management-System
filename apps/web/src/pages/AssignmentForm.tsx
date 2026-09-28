@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Assignment Form Page - Create and Edit Assignments
  */
 
@@ -8,6 +8,7 @@ import { Layout } from '../components/layout/Layout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { apiService } from '../services/api';
 import { ArrowLeft, Save } from 'lucide-react';
 
@@ -22,6 +23,7 @@ interface AssignmentFormData {
 export function AssignmentForm() {
   const { id } = useParams<{ id: string }>();
   const { user, logout } = useAuth();
+  const { selectedYear } = useAcademicYear();
   const navigate = useNavigate();
   const isEditMode = id && id !== 'new';
 
@@ -53,9 +55,10 @@ export function AssignmentForm() {
 
   const loadData = async () => {
     try {
+      const classroomParams = selectedYear?.id ? { academic_year_id: selectedYear.id } : {};
       const [yearsRes, classroomsRes, subjectsRes] = await Promise.all([
         apiService.getAcademicYears(),
-        apiService.getClassrooms(),
+        apiService.getClassrooms(classroomParams),
         apiService.getSubjects(),
       ]);
       
@@ -114,10 +117,9 @@ export function AssignmentForm() {
 
     try {
       // Prepare data with academic_year_id
-      const classroom = classrooms.find(c => c.id === formData.classroom_id);
       const submitData = {
         ...formData,
-        academic_year_id: classroom?.academic_year_id || selectedAcademicYear,
+        academic_year_id: selectedYear?.id || selectedAcademicYear,
         due_at: formData.due_date ? new Date(formData.due_date).getTime() : undefined,
       };
 
@@ -140,6 +142,17 @@ export function AssignmentForm() {
   };
 
   if (!user) return null;
+
+  if (!selectedYear) {
+    return (
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+        <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
+          <p style={{ fontSize: '16px', marginBottom: '8px' }}>Please select an academic year</p>
+          <p style={{ fontSize: '14px' }}>Use the dropdown in the header to select a year</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -353,6 +366,7 @@ export function AssignmentForm() {
     </Layout>
   );
 }
+
 
 
 

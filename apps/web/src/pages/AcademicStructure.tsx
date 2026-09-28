@@ -1,8 +1,9 @@
-/**
+﻿/**
  * Academic Structure Page - Manage Academic Configuration
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -11,9 +12,12 @@ import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
 import { CalendarDays, BookOpen, FileText, Plus, Users, UserCheck, X } from 'lucide-react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 export function AcademicStructure() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { selectedYear } = useAcademicYear();
   const [activeTab, setActiveTab] = useState<'years' | 'classrooms' | 'subjects' | 'teaching' | 'enrollments'>('years');
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,16 +40,17 @@ export function AcademicStructure() {
   useEffect(() => {
     loadData();
     loadDependencies();
-  }, [activeTab]);
+  }, [activeTab, selectedYear?.id]);
 
   const loadDependencies = async () => {
     try {
       // Load dropdown data
+      const params = selectedYear?.id ? { academic_year_id: selectedYear.id } : {};
       const [yearsRes, teachersRes, subjectsRes, classroomsRes] = await Promise.all([
         apiService.getAcademicYears(),
         apiService.getTeachers(),
         apiService.getSubjects(),
-        apiService.getClassrooms()
+        apiService.getClassrooms(params)
       ]);
       
       setAcademicYears(yearsRes.data || []);
@@ -68,16 +73,22 @@ export function AcademicStructure() {
           response = await apiService.getAcademicYears();
           break;
         case 'classrooms':
-          response = await apiService.getClassrooms();
+          response = await apiService.getClassrooms(
+            selectedYear?.id ? { academic_year_id: selectedYear.id } : {}
+          );
           break;
         case 'subjects':
           response = await apiService.getSubjects();
           break;
         case 'teaching':
-          response = await apiService.getTeachingAssignments();
+          response = await apiService.getTeachingAssignments(
+            selectedYear?.id ? { academic_year_id: selectedYear.id } : {}
+          );
           break;
         case 'enrollments':
-          response = await apiService.getEnrollments();
+          response = await apiService.getEnrollments(
+            selectedYear?.id ? { academic_year_id: selectedYear.id } : {}
+          );
           break;
       }
       
@@ -93,6 +104,11 @@ export function AcademicStructure() {
     e.preventDefault();
     setIsSubmitting(true);
     
+    // ID validation regex - accepts both UUID format and MD5 hash format (32 hex chars)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const md5Regex = /^[0-9a-f]{32}$/i;
+    const isValidId = (id: string) => uuidRegex.test(id) || md5Regex.test(id);
+    
     try {
       switch (activeTab) {
         case 'years':
@@ -103,14 +119,23 @@ export function AcademicStructure() {
           });
           break;
         case 'classrooms':
-          await apiService.createClassroom({
+          const gradeLevel = parseInt(formData.grade_level);
+          if (isNaN(gradeLevel)) {
+            throw new Error('Grade level must be a valid number');
+          }
+          const classroomData: any = {
             academic_year_id: formData.academic_year_id,
             classroom_code: formData.classroom_code,
             grade_name: formData.grade_name,
             division_name: formData.division_name,
-            grade_level: parseInt(formData.grade_level),
-            class_teacher_id: formData.class_teacher_id || undefined
-          });
+            grade_level: gradeLevel,
+          };
+          // Only include class_teacher_id if it has a valid ID value
+          if (formData.class_teacher_id && formData.class_teacher_id !== '' && isValidId(formData.class_teacher_id)) {
+            classroomData.class_teacher_id = formData.class_teacher_id;
+          }
+          console.log('Creating classroom with data:', JSON.stringify(classroomData, null, 2));
+          await apiService.createClassroom(classroomData);
           break;
         case 'subjects':
           await apiService.createSubject({
@@ -120,11 +145,36 @@ export function AcademicStructure() {
           });
           break;
         case 'teaching':
+          // Validate IDs before submission
+          if (!isValidId(formData.teacher_id)) {
+            throw new Error('Please select a valid teacher');
+          }
+          
+          if (!isValidId(formData.classroom_id)) {
+            throw new Error('Please select a valid classroom');
+          }
+          
+          if (!isValidId(formData.subject_id)) {
+            throw new Error('Please select a valid subject');
+          }
+          
           // Get classroom to find academic_year_id
           const classroom = classrooms.find(c => c.id === formData.classroom_id);
           if (!classroom) {
-            throw new Error('Classroom not found');
+            throw new Error('Classroom not found. Please refresh the page and try again.');
           }
+          
+          if (!classroom.academic_year_id) {
+            throw new Error('Classroom is missing academic year information');
+          }
+          
+          console.log('Creating teaching assignment:', {
+            academic_year_id: classroom.academic_year_id,
+            teacher_id: formData.teacher_id,
+            classroom_id: formData.classroom_id,
+            subject_id: formData.subject_id
+          });
+          
           await apiService.createTeachingAssignment({
             academic_year_id: classroom.academic_year_id,
             teacher_id: formData.teacher_id,
@@ -147,7 +197,9 @@ export function AcademicStructure() {
       await loadData();
       alert(`${activeTab === 'years' ? 'Academic Year' : activeTab === 'classrooms' ? 'Classroom' : activeTab === 'subjects' ? 'Subject' : activeTab === 'teaching' ? 'Teaching Assignment' : 'Enrollment'} created successfully`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to create');
+      console.error('Create error:', err);
+      const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+      alert(`Failed to create: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -166,14 +218,37 @@ export function AcademicStructure() {
 
   const handleTeacherAssignment = async (subjectId: string, teacherId: string) => {
     try {
-      // Get academic_year_id from selected classroom
-      const classroom = classrooms.find(c => c.id === selectedClassroom.id);
-      if (!classroom) {
-        throw new Error('Classroom not found');
+      // ID validation - accepts both UUID format and MD5 hash format (32 hex chars)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const md5Regex = /^[0-9a-f]{32}$/i;
+      const isValidId = (id: string) => uuidRegex.test(id) || md5Regex.test(id);
+      
+      if (!isValidId(teacherId)) {
+        throw new Error('Invalid teacher selected');
+      }
+      
+      if (!isValidId(subjectId)) {
+        throw new Error('Invalid subject selected');
+      }
+      
+      if (!selectedClassroom) {
+        throw new Error('No classroom selected');
+      }
+      
+      // selectedClassroom should already have academic_year_id from the API
+      if (!selectedClassroom.academic_year_id) {
+        throw new Error('Classroom is missing academic year information');
       }
 
+      console.log('Creating teaching assignment:', {
+        academic_year_id: selectedClassroom.academic_year_id,
+        teacher_id: teacherId,
+        classroom_id: selectedClassroom.id,
+        subject_id: subjectId
+      });
+
       await apiService.createTeachingAssignment({
-        academic_year_id: classroom.academic_year_id,
+        academic_year_id: selectedClassroom.academic_year_id,
         teacher_id: teacherId,
         classroom_id: selectedClassroom.id,
         subject_id: subjectId
@@ -184,7 +259,9 @@ export function AcademicStructure() {
       setTeachingAssignments(response.data || []);
       alert('Teacher assigned successfully');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to assign teacher');
+      console.error('Teacher assignment error:', err);
+      const errorMessage = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+      alert(`Failed to assign teacher: ${errorMessage}`);
     }
   };
 
@@ -627,7 +704,22 @@ export function AcademicStructure() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {data.map((item) => (
-                      <div key={item.id} style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div 
+                        key={item.id} 
+                        style={{ 
+                          padding: '16px', 
+                          border: '1px solid #e2e8f0', 
+                          borderRadius: '8px', 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center',
+                          cursor: activeTab === 'classrooms' ? 'pointer' : 'default',
+                          transition: 'background 0.2s'
+                        }}
+                        onClick={() => activeTab === 'classrooms' && navigate(`/classrooms/${item.id}`)}
+                        onMouseEnter={(e) => activeTab === 'classrooms' && (e.currentTarget.style.background = '#f8fafc')}
+                        onMouseLeave={(e) => activeTab === 'classrooms' && (e.currentTarget.style.background = 'white')}
+                      >
                         <div>
                           <div style={{ fontWeight: 600 }}>
                             {item.label || item.name || item.classroom_code || `${item.teacher_name} - ${item.subject_name}`}
@@ -636,7 +728,7 @@ export function AcademicStructure() {
                           {item.classroom_code && (
                             <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
                               {item.grade_name} {item.division_name} (Level {item.grade_level})
-                              {item.class_teacher_name && ` • Class Teacher: ${item.class_teacher_name}`}
+                              {item.class_teacher_name && ` â€¢ Class Teacher: ${item.class_teacher_name}`}
                             </div>
                           )}
                           {item.start_date && item.end_date && (
@@ -659,7 +751,10 @@ export function AcademicStructure() {
                           <Button 
                             variant="secondary" 
                             size="small"
-                            onClick={() => openTeacherAssignmentModal(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTeacherAssignmentModal(item);
+                            }}
                           >
                             <UserCheck size={14} style={{ marginRight: '6px' }} />
                             Assign Teachers
@@ -754,8 +849,11 @@ export function AcademicStructure() {
                           {!assignment ? (
                             <select
                               onChange={(e) => {
-                                if (e.target.value) {
-                                  handleTeacherAssignment(subject.id, e.target.value);
+                                const teacherId = e.target.value;
+                                console.log('Teacher selected:', teacherId, 'for subject:', subject.id);
+                                console.log('Available teachers:', teachers);
+                                if (teacherId) {
+                                  handleTeacherAssignment(subject.id, teacherId);
                                   e.target.value = '';
                                 }
                               }}
@@ -770,7 +868,9 @@ export function AcademicStructure() {
                             >
                               <option value="">Assign Teacher...</option>
                               {teachers.filter(t => t.status === 'active').map(teacher => (
-                                <option key={teacher.id} value={teacher.id}>{teacher.full_name}</option>
+                                <option key={teacher.id || teacher.user_id} value={teacher.id || teacher.user_id}>
+                                  {teacher.full_name || `${teacher.first_name} ${teacher.last_name}`}
+                                </option>
                               ))}
                             </select>
                           ) : (
@@ -782,7 +882,7 @@ export function AcademicStructure() {
                               fontSize: '13px',
                               fontWeight: 500
                             }}>
-                              ✓ Assigned
+                              âœ“ Assigned
                             </span>
                           )}
                         </div>
@@ -811,6 +911,7 @@ export function AcademicStructure() {
     </Layout>
   );
 }
+
 
 
 
