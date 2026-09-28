@@ -31,7 +31,6 @@ export function Fees() {
   const { selectedYear } = useAcademicYear();
   const navigate = useNavigate();
 
-  const [feeCharges, setFeeCharges] = useState<any[]>([]);
   const [groupedCharges, setGroupedCharges] = useState<GroupedStudent[]>([]);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +85,6 @@ export function Fees() {
 
   const loadFeeCharges = async () => {
     if (!selectedYear) {
-      setFeeCharges([]);
       setGroupedCharges([]);
       setIsLoading(false);
       return;
@@ -98,8 +96,6 @@ export function Fees() {
       const response = await apiService.getFeeCharges({
         academic_year_id: selectedYear.id
       });
-      setFeeCharges(response.data);
-      
       // Group charges by student
       const grouped = groupChargesByStudent(response.data);
       setGroupedCharges(grouped);

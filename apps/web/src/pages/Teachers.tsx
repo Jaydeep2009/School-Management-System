@@ -37,6 +37,10 @@ export function Teachers() {
       if (statusFilter !== 'all') {
         filters.status = statusFilter;
       }
+      // FIX: Add academic year filter
+      if (selectedYear?.id) {
+        filters.academic_year_id = selectedYear.id;
+      }
       const response = await apiService.getTeachers(filters);
       setTeachers(response.data || response);
     } catch (err) {
@@ -73,6 +77,11 @@ export function Teachers() {
             </h1>
             <p style={{ fontSize: '14px', color: '#64748b' }}>
               Manage teacher accounts and profiles
+              {selectedYear && (
+                <span style={{ marginLeft: '8px', color: '#2563eb', fontWeight: 500 }}>
+                  • Viewing: {selectedYear.label}
+                </span>
+              )}
             </p>
           </div>
           <Button onClick={() => navigate('/teachers/new')}>
@@ -139,7 +148,7 @@ export function Teachers() {
                   No teachers found
                 </h3>
                 <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
-                  {searchQuery ? 'Try adjusting your search criteria' : 'Get started by adding your first teacher'}
+                  {searchQuery ? 'Try adjusting your search criteria' : selectedYear ? 'No teachers assigned for this academic year' : 'Get started by adding your first teacher'}
                 </p>
                 {!searchQuery && (
                   <Button onClick={() => navigate('/teachers/new')}>
@@ -182,16 +191,16 @@ export function Teachers() {
                         onClick={() => navigate(`/teachers/${teacher.id}`)}
                       >
                         <td style={{ padding: '16px' }}>
-                          <div style={{ fontWeight: 500, color: '#0f172a' }}>{teacher.full_name || 'â€”'}</div>
+                          <div style={{ fontWeight: 500, color: '#0f172a' }}>{teacher.full_name || '—'}</div>
                         </td>
                         <td style={{ padding: '16px', fontFamily: 'monospace', fontSize: '13px', color: '#64748b' }}>
-                          {teacher.employee_code || 'â€”'}
+                          {teacher.employee_code || '—'}
                         </td>
                         <td style={{ padding: '16px', fontFamily: 'monospace', fontSize: '13px', color: '#64748b' }}>
-                          {teacher.login_id || 'â€”'}
+                          {teacher.login_id || '—'}
                         </td>
                         <td style={{ padding: '16px', color: '#64748b' }}>
-                          {teacher.phone || 'â€”'}
+                          {teacher.phone || '—'}
                         </td>
                         <td style={{ padding: '16px' }}>
                           <span style={{
@@ -235,9 +244,3 @@ export function Teachers() {
     </Layout>
   );
 }
-
-
-
-
-
-
