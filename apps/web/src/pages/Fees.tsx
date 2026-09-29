@@ -65,7 +65,10 @@ export function Fees() {
       const student = studentMap.get(studentId)!;
       student.charges.push(charge);
       student.totalCharged += charge.amount || 0;
-      student.totalPaid += charge.total_paid || 0;
+      // total_paid is the same for all charges of this student+year, so only set it once
+      if (student.charges.length === 1) {
+        student.totalPaid = charge.total_paid || 0;
+      }
     });
 
     return Array.from(studentMap.values()).map((student) => {
