@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Sidebar Component
  */
 
@@ -28,15 +28,18 @@ interface SidebarProps {
   principalName: string;
   onLogout: () => void;
   isCollapsed?: boolean;
+  role?: 'principal' | 'teacher' | 'student';
+  isClassTeacher?: boolean;
 }
 
-export function Sidebar({ schoolName, principalName, onLogout, isCollapsed }: SidebarProps) {
-  const navigationItems = [
+export function Sidebar({ schoolName, principalName, onLogout, isCollapsed, role = 'principal', isClassTeacher = false }: SidebarProps) {
+  // Principal navigation
+  const principalNavigationItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/students', icon: Users, label: 'Students' },
     { path: '/teachers', icon: GraduationCap, label: 'Teachers' },
     { path: '/academic-structure', icon: BookOpen, label: 'Academic Structure' },
-    { path: '/attendance', icon: ClipboardCheck, label: 'Attendance' },
+    // Removed: { path: '/attendance', icon: ClipboardCheck, label: 'Attendance' },
     { path: '/marks', icon: BarChart3, label: 'Marks & Assessments' },
     { path: '/assignments', icon: FileText, label: 'Assignments' },
     { path: '/fees', icon: DollarSign, label: 'Fees' },
@@ -47,6 +50,51 @@ export function Sidebar({ schoolName, principalName, onLogout, isCollapsed }: Si
     { path: '/imports', icon: Upload, label: 'Imports' },
     { path: '/audit-logs', icon: FileSpreadsheet, label: 'Audit Logs' },
   ];
+
+  // Teacher navigation
+  const teacherNavigationItems = [
+    { path: '/teacher/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/teacher/students', icon: Users, label: 'My Students' },
+    { path: '/teacher/attendance', icon: ClipboardCheck, label: 'Attendance' },
+    { path: '/teacher/marks', icon: BarChart3, label: 'Marks' },
+    { path: '/teacher/assignments', icon: FileText, label: 'Assignments' },
+    { path: '/teacher/timetable', icon: Calendar, label: 'Timetable' },
+  ];
+
+  // Student navigation
+  const studentNavigationItems = [
+    { path: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/student/attendance', icon: ClipboardCheck, label: 'My Attendance' },
+    { path: '/student/marks', icon: BarChart3, label: 'My Marks' },
+    { path: '/student/assignments', icon: FileText, label: 'Assignments' },
+    { path: '/student/fees', icon: DollarSign, label: 'Fees' },
+    { path: '/student/profile', icon: Users, label: 'My Profile' },
+  ];
+
+  // Add Class Overview if teacher is a class teacher
+  if (role === 'teacher' && isClassTeacher) {
+    teacherNavigationItems.push({
+      path: '/teacher/class-overview',
+      icon: Users,
+      label: 'Class Overview',
+    });
+    teacherNavigationItems.push({
+      path: '/birthdays',
+      icon: Cake,
+      label: 'Birthdays',
+    });
+  }
+
+  const navigationItems = role === 'student' 
+    ? studentNavigationItems 
+    : role === 'teacher' 
+    ? teacherNavigationItems 
+    : principalNavigationItems;
+  const userRole = role === 'student' 
+    ? 'Student' 
+    : role === 'teacher' 
+    ? (isClassTeacher ? 'Class Teacher' : 'Teacher') 
+    : 'Principal';
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -85,7 +133,7 @@ export function Sidebar({ schoolName, principalName, onLogout, isCollapsed }: Si
           {!isCollapsed && (
             <div className="sidebar-user-info">
               <div className="sidebar-user-name">{principalName}</div>
-              <div className="sidebar-user-role">Principal</div>
+              <div className="sidebar-user-role">{userRole}</div>
             </div>
           )}
         </div>
