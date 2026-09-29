@@ -10,7 +10,9 @@ import html2canvas from 'html2canvas';
 interface ReceiptData {
   receipt_no: string;
   date: string;
+  school_name: string;
   student_name: string;
+  student_code: string;
   classroom_code: string;
   roll_number: string;
   admission_number: string;
@@ -23,7 +25,7 @@ function createReceiptHTML(data: ReceiptData): string {
   return `
     <div style="border: 3px solid #2563eb; padding: 40px; border-radius: 12px; background: white;">
       <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #2563eb; padding-bottom: 25px;">
-        <h1 style="color: #1e40af; font-size: 36px; margin: 0 0 10px 0; font-weight: 700;">SCHOOL MANAGEMENT SYSTEM</h1>
+        <h1 style="color: #1e40af; font-size: 36px; margin: 0 0 10px 0; font-weight: 700;">${data.school_name}</h1>
         <h2 style="color: #64748b; font-size: 22px; margin: 0; font-weight: 500;">Fee Payment Receipt</h2>
       </div>
       
