@@ -16,6 +16,7 @@ import type {
   FeeSummary,
   StudentFeeLedgerEntry,
   StudentFeeDetails,
+  FeeChargeWithDetails,
 } from './fees.types';
 import * as feesRepo from './fees.repository';
 import * as feesAuthz from './fees.authorization';
@@ -162,6 +163,23 @@ export async function createFeeCharge(
   await logAudit(db, tenant, 'fee_charge_created', 'fee_charge', charge.id, null, charge);
 
   return charge;
+}
+
+/**
+ * List all fee charges with filters
+ */
+export async function listAllCharges(
+  db: D1Database,
+  tenant: TenantContext,
+  filters: {
+    academicYearId?: string;
+    studentId?: string;
+    status?: 'pending' | 'partially_paid' | 'paid';
+  }
+): Promise<FeeChargeWithDetails[]> {
+  feesAuthz.ensureCanManageFees(tenant);
+
+  return await feesRepo.findCharges(db, tenant.schoolId, filters);
 }
 
 export async function listChargesForStudent(
@@ -472,5 +490,73 @@ export async function getStudentFeeDetails(
     academic_year_label: academicYear.label,
     summary,
     ledger,
+  };
+}
+
+/**
+ * Get school-wide fees statistics for dashboard
+ */
+export async function getSchoolFeesStats(
+  db: D1Database,
+  tenant: TenantContext,
+  academicYearId?: string
+): Promise<{
+  total_collected_paise: number;
+  total_pending_paise: number;
+  total_charges_paise: number;
+  charge_count: number;
+  payment_count: number;
+}> {
+  feesAuthz.ensureCanManageFees(tenant);
+
+  // Build query filters
+  const filters: string[] = ['fc.school_id = ?'];
+  const params: any[] = [tenant.schoolId];
+
+  if (academicYearId) {
+    filters.push('fc.academic_year_id = ?');
+    params.push(academicYearId);
+  }
+
+  // Get all active charges with their totals
+  const chargesQuery = `
+    SELECT 
+      COUNT(*) as charge_count,
+      SUM(fc.amount_paise) as total_charges_paise
+    FROM fee_charges fc
+    WHERE ${filters.join(' AND ')}
+    AND fc.voided_at IS NULL
+  `;
+
+  const chargesResult = await db.prepare(chargesQuery).bind(...params).first();
+  const chargeCount = (chargesResult as any)?.charge_count || 0;
+  const totalCharges = (chargesResult as any)?.total_charges_paise || 0;
+
+  // Get total payments for this school/year
+  const paymentsQuery = `
+    SELECT 
+      COUNT(*) as payment_count,
+      SUM(fp.amount_paise) as total_payments_paise
+    FROM fee_payments fp
+    WHERE fp.school_id = ?
+    ${academicYearId ? 'AND fp.academic_year_id = ?' : ''}
+    AND fp.voided_at IS NULL
+  `;
+
+  const paymentParams = [tenant.schoolId];
+  if (academicYearId) paymentParams.push(academicYearId);
+
+  const paymentsResult = await db.prepare(paymentsQuery).bind(...paymentParams).first();
+  const paymentCount = (paymentsResult as any)?.payment_count || 0;
+  const totalCollected = (paymentsResult as any)?.total_payments_paise || 0;
+
+  const totalPending = totalCharges - totalCollected;
+
+  return {
+    total_collected_paise: totalCollected,
+    total_pending_paise: totalPending,
+    total_charges_paise: totalCharges,
+    charge_count: chargeCount,
+    payment_count: paymentCount,
   };
 }

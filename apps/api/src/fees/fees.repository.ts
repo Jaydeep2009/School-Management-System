@@ -14,6 +14,7 @@ import type {
   CreateFeeChargeRequest,
   CreateFeePaymentRequest,
   FeeChargeWithStudent,
+  FeeChargeWithDetails,
   FeePaymentWithStudent,
 } from './fees.types';
 
@@ -261,6 +262,132 @@ export async function voidFeeCharge(
     .run();
 }
 
+/**
+ * Find fee charges with filters and student details
+ * 
+ * IMPORTANT FEE CALCULATION NOTES:
+ * - Payments are NOT linked to specific charges in the database
+ * - This function calculates totals at the student+year level
+ * - Each charge shows the TOTAL payments for that student+year (not per-charge payment)
+ * - Status is calculated based on: total charges vs total payments for student+year
+ * 
+ * For accurate balance calculations, always use calculateFeeSummary() from fees.service
+ */
+export async function findCharges(
+  db: D1Database,
+  schoolId: string,
+  filters: {
+    academicYearId?: string;
+    studentId?: string;
+    status?: 'pending' | 'partially_paid' | 'paid';
+  }
+): Promise<FeeChargeWithDetails[]> {
+  // Step 1: Get all charges with student details
+  let chargeQuery = `
+    SELECT 
+      fc.id, fc.school_id, fc.student_id, fc.academic_year_id, fc.enrollment_id, fc.fee_category_id,
+      fc.kind, fc.title, fc.amount_paise, fc.due_on, fc.created_by, fc.created_at,
+      fc.voided_at, fc.voided_by, fc.void_reason,
+      sp.student_code,
+      sp.first_name || ' ' || COALESCE(sp.middle_name || ' ', '') || sp.last_name as student_name,
+      fcat.name as category_name
+    FROM fee_charges fc
+    LEFT JOIN student_profiles sp ON fc.student_id = sp.user_id
+    LEFT JOIN fee_categories fcat ON fc.fee_category_id = fcat.id
+    WHERE fc.school_id = ? AND fc.voided_at IS NULL
+  `;
+  
+  const params: any[] = [schoolId];
+
+  if (filters.academicYearId) {
+    chargeQuery += ` AND fc.academic_year_id = ?`;
+    params.push(filters.academicYearId);
+  }
+
+  if (filters.studentId) {
+    chargeQuery += ` AND fc.student_id = ?`;
+    params.push(filters.studentId);
+  }
+
+  chargeQuery += ` ORDER BY fc.due_on DESC, fc.created_at DESC`;
+
+  const chargeResults = await db.prepare(chargeQuery).bind(...params).all<any>();
+  const charges = chargeResults.results || [];
+
+  // If no charges, return empty array
+  if (charges.length === 0) {
+    return [];
+  }
+
+  // Step 2: Get payment totals per student+year combination
+  let paymentQuery = `
+    SELECT 
+      fp.student_id,
+      fp.academic_year_id,
+      SUM(fp.amount_paise) as total_paid_paise
+    FROM fee_payments fp
+    WHERE fp.school_id = ? AND fp.voided_at IS NULL
+  `;
+  
+  const paymentParams: any[] = [schoolId];
+
+  if (filters.academicYearId) {
+    paymentQuery += ` AND fp.academic_year_id = ?`;
+    paymentParams.push(filters.academicYearId);
+  }
+
+  if (filters.studentId) {
+    paymentQuery += ` AND fp.student_id = ?`;
+    paymentParams.push(filters.studentId);
+  }
+
+  paymentQuery += ` GROUP BY fp.student_id, fp.academic_year_id`;
+
+  const paymentResults = await db.prepare(paymentQuery).bind(...paymentParams).all<any>();
+  
+  // Build map of student+year -> total payment
+  const paymentTotals = new Map<string, number>();
+  for (const row of (paymentResults.results || [])) {
+    const key = `${row.student_id}-${row.academic_year_id}`;
+    paymentTotals.set(key, row.total_paid_paise || 0);
+  }
+
+  // Step 3: Calculate charge totals per student+year
+  const studentYearTotals = new Map<string, {totalCharges: number, totalPaid: number}>();
+  
+  for (const charge of charges) {
+    const key = `${charge.student_id}-${charge.academic_year_id}`;
+    const existing = studentYearTotals.get(key) || {totalCharges: 0, totalPaid: 0};
+    existing.totalCharges += charge.amount_paise;
+    existing.totalPaid = paymentTotals.get(key) || 0;
+    studentYearTotals.set(key, existing);
+  }
+
+  // Step 4: Attach totals to each charge and calculate status
+  const result = charges.map((row: any) => {
+    const key = `${row.student_id}-${row.academic_year_id}`;
+    const totals = studentYearTotals.get(key) || {totalCharges: 0, totalPaid: 0};
+    
+    // Status is based on student+year totals, not individual charge
+    const status = totals.totalPaid >= totals.totalCharges ? 'paid' 
+                 : totals.totalPaid > 0 ? 'partially_paid' 
+                 : 'pending';
+
+    return {
+      ...row,
+      amount: row.amount_paise / 100,
+      total_paid: totals.totalPaid / 100, // TOTAL for this student+year, not per charge
+      status,
+    };
+  });
+
+  // Apply status filter if specified
+  if (filters.status) {
+    return result.filter(r => r.status === filters.status);
+  }
+
+  return result;
+}
 /**
  * =====================================================================
  * FEE PAYMENTS

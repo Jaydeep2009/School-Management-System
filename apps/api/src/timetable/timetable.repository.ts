@@ -74,6 +74,7 @@ export async function createTimetable(
     version,
     name: data.name,
     status: 'draft',
+    image_url: null,
     created_by: createdBy,
     published_at: null,
     archived_at: null,
@@ -142,7 +143,7 @@ export async function listTimetables(
       t.id, t.school_id, t.academic_year_id, t.classroom_id, t.version, t.name,
       t.status, t.created_by, t.published_at, t.archived_at, t.created_at, t.updated_at,
       ay.label as academic_year_label,
-      c.code as classroom_code,
+      c.classroom_code as classroom_code,
       c.grade_name as classroom_grade,
       c.division_name as classroom_division
     FROM timetables t
@@ -196,6 +197,27 @@ export async function updateTimetable(
        WHERE id = ? AND school_id = ?`
     )
     .bind(name, now, timetableId, schoolId)
+    .run();
+}
+
+/**
+ * Update timetable image URL
+ */
+export async function updateTimetableImage(
+  db: D1Database,
+  timetableId: string,
+  schoolId: string,
+  imageUrl: string
+): Promise<void> {
+  const now = Date.now();
+
+  await db
+    .prepare(
+      `UPDATE timetables
+       SET image_url = ?, updated_at = ?
+       WHERE id = ? AND school_id = ?`
+    )
+    .bind(imageUrl, now, timetableId, schoolId)
     .run();
 }
 

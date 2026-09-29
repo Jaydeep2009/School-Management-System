@@ -43,6 +43,7 @@ export type AuditAction =
   | 'assessment_locked'
   | 'assessment_unlocked'
   | 'marks_entered'
+  | 'timetable_image_uploaded'
   | 'marks_entered_override'
   | 'assignment_created'
   | 'assignment_updated'
