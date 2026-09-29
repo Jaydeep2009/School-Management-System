@@ -45,14 +45,44 @@ export async function findByUserId(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, student_code, admission_number,
-              first_name, middle_name, last_name,
-              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
-              gender, date_of_birth, dob_md, phone, email, address, parent_name, parent_phone, parent_email,
-              status, created_at, updated_at
-       FROM student_profiles
-       WHERE user_id = ?
-         AND school_id = ?
+      `SELECT 
+         sp.user_id as id,
+         sp.user_id,
+         sp.school_id,
+         sp.student_code,
+         sp.admission_number,
+         sp.first_name,
+         sp.middle_name,
+         sp.last_name,
+         (sp.first_name || COALESCE(' ' || sp.middle_name, '') || ' ' || sp.last_name) as full_name,
+         sp.gender,
+         sp.date_of_birth,
+         sp.dob_md,
+         sp.phone,
+         sp.email,
+         sp.address,
+         sp.parent_name,
+         sp.parent_phone,
+         sp.parent_email,
+         sp.status,
+         sp.created_at,
+         sp.updated_at,
+         e.id as enrollment_id,
+         e.classroom_id,
+         e.academic_year_id,
+         e.roll_number,
+         c.classroom_code,
+         c.grade_name,
+         c.division_name,
+         ay.label as academic_year,
+         sch.name as school_name
+       FROM student_profiles sp
+       LEFT JOIN schools sch ON sp.school_id = sch.id
+       LEFT JOIN enrollments e ON sp.user_id = e.student_id AND e.status = 'active'
+       LEFT JOIN classrooms c ON e.classroom_id = c.id
+       LEFT JOIN academic_years ay ON e.academic_year_id = ay.id
+       WHERE sp.user_id = ?
+         AND sp.school_id = ?
        LIMIT 1`
     )
     .bind(userId, schoolId)
@@ -116,6 +146,77 @@ export async function findByAdmissionNumber(
 }
 
 /**
+ * Find all students with current enrollment (classroom info)
+ * SECURITY: Filters by school_id
+ */
+export async function findAllWithEnrollment(
+  db: D1Database,
+  schoolId: string,
+  academicYearId?: string,
+  filters?: {
+    status?: StudentStatus;
+    search?: string;
+    admission_batch?: string;
+  }
+): Promise<any[]> {
+  let query = `SELECT s.user_id as id, s.user_id, s.school_id, s.student_code, s.admission_number,
+                      s.first_name, s.middle_name, s.last_name,
+                      (s.first_name || COALESCE(' ' || s.middle_name, '') || ' ' || s.last_name) as full_name,
+                      s.gender, s.date_of_birth, s.dob_md, s.phone, s.email, s.address,
+                      s.parent_name, s.parent_phone, s.parent_email, s.admission_batch,
+                      s.status, s.created_at, s.updated_at,
+                      u.login_id,
+                      c.classroom_code, c.grade_name, c.division_name,
+                      e.roll_number, e.status as enrollment_status
+               FROM student_profiles s
+               JOIN users u ON s.user_id = u.id
+               LEFT JOIN enrollments e ON s.user_id = e.student_id AND e.status = 'active'
+               LEFT JOIN classrooms c ON e.classroom_id = c.id`;
+  
+  const bindings: unknown[] = [];
+  const conditions: string[] = ['s.school_id = ?'];
+  bindings.push(schoolId);
+
+  // Filter by academic year if provided
+  if (academicYearId) {
+    conditions.push('(c.academic_year_id = ? OR c.academic_year_id IS NULL)');
+    bindings.push(academicYearId);
+  }
+
+  if (filters?.status) {
+    conditions.push('s.status = ?');
+    bindings.push(filters.status);
+  }
+
+  if (filters?.admission_batch) {
+    conditions.push('s.admission_batch = ?');
+    bindings.push(filters.admission_batch);
+  }
+
+  if (filters?.search) {
+    conditions.push(`(
+      s.first_name LIKE ? OR
+      s.last_name LIKE ? OR
+      s.student_code LIKE ? OR
+      s.admission_number LIKE ? OR
+      u.login_id LIKE ?
+    )`);
+    const searchPattern = `%${filters.search}%`;
+    bindings.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+  }
+
+  query += ' WHERE ' + conditions.join(' AND ');
+  query += ' ORDER BY s.created_at DESC';
+
+  const result = await db
+    .prepare(query)
+    .bind(...bindings)
+    .all<any>();
+
+  return result.results || [];
+}
+
+/**
  * List all student profiles in a school
  * SECURITY: Filters by school_id
  */
@@ -125,13 +226,14 @@ export async function findAll(
   filters?: {
     status?: StudentStatus;
     search?: string;
+    admission_batch?: string;
   }
 ): Promise<StudentProfile[]> {
   let query = `SELECT s.user_id as id, s.user_id, s.school_id, s.student_code, s.admission_number,
                       s.first_name, s.middle_name, s.last_name,
                       (s.first_name || COALESCE(' ' || s.middle_name, '') || ' ' || s.last_name) as full_name,
                       s.gender, s.date_of_birth, s.dob_md, s.phone, s.email, s.address,
-                      s.parent_name, s.parent_phone, s.parent_email,
+                      s.parent_name, s.parent_phone, s.parent_email, s.admission_batch,
                       s.status, s.created_at, s.updated_at,
                       u.login_id
                FROM student_profiles s
@@ -143,6 +245,11 @@ export async function findAll(
   if (filters?.status) {
     query += ' AND s.status = ?';
     bindings.push(filters.status);
+  }
+
+  if (filters?.admission_batch) {
+    query += ' AND s.admission_batch = ?';
+    bindings.push(filters.admission_batch);
   }
 
   if (filters?.search) {
@@ -191,6 +298,7 @@ export async function create(
     parent_name: string | null;
     parent_phone: string | null;
     parent_email: string | null;
+    admission_batch: string | null;
     status: StudentStatus;
   }
 ): Promise<StudentProfile> {
@@ -202,9 +310,9 @@ export async function create(
         user_id, school_id, student_code, admission_number,
         first_name, middle_name, last_name, gender, date_of_birth, dob_md,
         phone, email, address, parent_name, parent_phone, parent_email,
-        status, created_at, updated_at
+        admission_batch, status, created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       data.user_id,
@@ -223,6 +331,7 @@ export async function create(
       data.parent_name,
       data.parent_phone,
       data.parent_email,
+      data.admission_batch,
       data.status,
       now,
       now
@@ -247,6 +356,7 @@ export async function create(
     parent_name: data.parent_name,
     parent_phone: data.parent_phone,
     parent_email: data.parent_email,
+    admission_batch: data.admission_batch,
     status: data.status,
     created_at: now,
     updated_at: now,
@@ -274,6 +384,7 @@ export async function update(
     address?: string | null;
     parent_name?: string | null;
     parent_phone?: string | null;
+    admission_batch?: string | null;
     status?: StudentStatus;
   }
 ): Promise<boolean> {
@@ -338,6 +449,11 @@ export async function update(
   if (data.parent_phone !== undefined) {
     updates.push('parent_phone = ?');
     bindings.push(data.parent_phone);
+  }
+
+  if (data.admission_batch !== undefined) {
+    updates.push('admission_batch = ?');
+    bindings.push(data.admission_batch);
   }
 
   if (data.status !== undefined) {
@@ -427,6 +543,7 @@ export async function findByIdWithUser(
         sp.parent_name,
         sp.parent_phone,
         sp.parent_email,
+        sp.admission_batch,
         sp.status as profile_status,
         sp.created_at as profile_created_at,
         sp.updated_at as profile_updated_at,
@@ -467,6 +584,7 @@ export async function findByIdWithUser(
       parent_name: result.parent_name,
       parent_phone: result.parent_phone,
       parent_email: result.parent_email,
+      admission_batch: result.admission_batch,
       status: result.profile_status,
       created_at: result.profile_created_at,
       updated_at: result.profile_updated_at,
