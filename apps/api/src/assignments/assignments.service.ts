@@ -44,7 +44,7 @@ async function getClassroom(
 ) {
   const result = await db
     .prepare(
-      `SELECT id, school_id, academic_year_id, name, section, class_teacher_id
+      `SELECT id, school_id, academic_year_id, grade_name, division_name, class_teacher_id
        FROM classrooms
        WHERE id = ?
          AND school_id = ?

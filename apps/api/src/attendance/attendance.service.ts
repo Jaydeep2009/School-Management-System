@@ -251,6 +251,7 @@ export async function markAttendance(
 
 /**
  * Get attendance entries for a session
+ * Auto-generates entries for all enrolled students if none exist
  */
 export async function getSessionEntries(
   db: D1Database,
@@ -265,7 +266,49 @@ export async function getSessionEntries(
 
   await attendanceAuthz.ensureCanViewAttendanceSession(db, tenant, session);
 
-  return await attendanceRepo.findEntriesBySessionWithDetails(db, sessionId);
+  // Check if entries already exist
+  let entries = await attendanceRepo.findEntriesBySessionWithDetails(db, sessionId);
+  
+  // If no entries exist, auto-generate for all enrolled students in the classroom
+  if (entries.length === 0) {
+    // Get all students enrolled in this classroom for the academic year
+    const enrollments = await db
+      .prepare(
+        `SELECT e.id as enrollment_id, e.student_id, 
+                sp.student_code, 
+                sp.first_name || ' ' || sp.last_name as student_name
+         FROM enrollments e
+         JOIN student_profiles sp ON e.student_id = sp.user_id
+         WHERE e.classroom_id = ? 
+           AND e.academic_year_id = ?
+           AND e.status IN ('active', 'planned')
+         ORDER BY sp.student_code`
+      )
+      .bind(session.classroom_id, session.academic_year_id)
+      .all<any>();
+    
+    const students = enrollments.results || [];
+    
+    // Create default entries (absent) for all students
+    const timestamp = Date.now();
+    for (const student of students) {
+      const entry: AttendanceEntry = {
+        session_id: sessionId,
+        student_id: student.student_id,
+        enrollment_id: student.enrollment_id,
+        status: 'absent', // Default to absent, teacher will mark present
+        updated_by: tenant.userId,
+        updated_at: timestamp,
+      };
+      
+      await attendanceRepo.upsertEntry(db, entry);
+    }
+    
+    // Reload entries with details
+    entries = await attendanceRepo.findEntriesBySessionWithDetails(db, sessionId);
+  }
+
+  return entries;
 }
 
 /**

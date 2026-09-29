@@ -28,15 +28,23 @@ export interface Student {
   guardian_email?: string;
   admission_number?: string;
   admission_date?: string;
+  admission_batch?: string;
   status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
+  // Enrollment fields (when fetched with enrollment data)
+  classroom_code?: string;
+  grade_name?: string;
+  division_name?: string;
+  roll_number?: string;
+  enrollment_status?: 'active' | 'promoted' | 'retained' | 'left';
 }
 
 export interface Teacher {
   id: string;
   user_id: string;
   school_id: string;
+  employee_code?: string;
   login_id: string;
   full_name: string;
   date_of_birth: string;

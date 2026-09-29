@@ -61,8 +61,7 @@ export async function findAssessmentWithDetails(
         a.is_published, a.is_locked,
         a.created_by, a.created_at, a.updated_at,
         s.name as subject_name,
-        c.name as classroom_name,
-        c.section as classroom_section
+        (c.grade_name || '-' || c.division_name) as classroom_name
        FROM assessments a
        INNER JOIN subjects s ON a.subject_id = s.id
        INNER JOIN classrooms c ON a.classroom_id = c.id
@@ -104,8 +103,7 @@ export async function findAssessments(
       a.is_published, a.is_locked,
       a.created_by, a.created_at, a.updated_at,
       s.name as subject_name,
-      c.name as classroom_name,
-      c.section as classroom_section
+      (c.grade_name || '-' || c.division_name) as classroom_name
     FROM assessments a
     INNER JOIN subjects s ON a.subject_id = s.id
     INNER JOIN classrooms c ON a.classroom_id = c.id
@@ -198,7 +196,7 @@ export async function createAssessment(
 ): Promise<Assessment> {
   const now = Date.now();
 
-  await db
+  const result = await db
     .prepare(
       `INSERT INTO assessments (
         id, school_id, academic_year_id, classroom_id, subject_id, name,
@@ -223,6 +221,11 @@ export async function createAssessment(
       now
     )
     .run();
+
+  // Check if insert was successful
+  if (!result.success) {
+    throw new Error(`Failed to create assessment: ${result.error || 'Unknown error'}`);
+  }
 
   return {
     id: data.id,
@@ -370,16 +373,23 @@ export async function findMarksByAssessment(
   const results = await db
     .prepare(
       `SELECT 
-        m.assessment_id, m.student_id, m.enrollment_id,
-        m.marks_obtained, m.status, m.updated_by, m.updated_at,
+        a.id as assessment_id,
+        e.student_id,
+        e.id as enrollment_id,
+        m.marks_obtained,
+        COALESCE(m.status, 'graded') as status,
+        m.updated_by,
+        m.updated_at,
         sp.student_code,
         sp.first_name || ' ' || COALESCE(sp.middle_name || ' ', '') || sp.last_name as student_name,
         e.roll_number
-       FROM marks m
-       INNER JOIN student_profiles sp ON m.student_id = sp.user_id
-       INNER JOIN enrollments e ON m.enrollment_id = e.id
-       INNER JOIN assessments a ON m.assessment_id = a.id
-       WHERE m.assessment_id = ?
+       FROM assessments a
+       INNER JOIN enrollments e ON e.classroom_id = a.classroom_id 
+         AND e.academic_year_id = a.academic_year_id
+         AND e.status IN ('active', 'planned')
+       INNER JOIN student_profiles sp ON e.student_id = sp.user_id
+       LEFT JOIN marks m ON m.assessment_id = a.id AND m.student_id = e.student_id
+       WHERE a.id = ?
          AND a.school_id = ?
        ORDER BY e.roll_number, sp.student_code`
     )

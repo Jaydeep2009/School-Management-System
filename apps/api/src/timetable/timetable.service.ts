@@ -114,6 +114,46 @@ export async function updateTimetable(
   return after!;
 }
 
+/**
+ * Upload timetable image
+ */
+export async function uploadTimetableImage(
+  db: D1Database,
+  storage: R2Bucket,
+  timetableId: string,
+  file: File,
+  tenant: TenantContext
+): Promise<{ image_url: string }> {
+  timetableAuthz.ensureCanManageTimetables(tenant);
+
+  const timetable = await timetableRepo.findTimetableById(db, timetableId, tenant.schoolId);
+
+  if (!timetable) {
+    throw TimetableError.timetableNotFound(timetableId);
+  }
+
+  // Generate unique filename
+  const timestamp = Date.now();
+  const ext = file.name.split('.').pop() || 'jpg';
+  const objectKey = `timetables/${tenant.schoolId}/${timetableId}/${timestamp}.${ext}`;
+
+  // Upload to R2
+  const arrayBuffer = await file.arrayBuffer();
+  await storage.put(objectKey, arrayBuffer, {
+    httpMetadata: {
+      contentType: file.type,
+    },
+  });
+
+  // Update timetable with image URL
+  const imageUrl = `/api/timetables/${timetableId}/image/${timestamp}.${ext}`;
+  await timetableRepo.updateTimetableImage(db, timetableId, tenant.schoolId, imageUrl);
+
+  await logAudit(db, tenant, 'timetable_image_uploaded', 'timetable', timetableId, { image_url: timetable.image_url }, { image_url: imageUrl });
+
+  return { image_url: imageUrl };
+}
+
 export async function deleteTimetable(
   db: D1Database,
   timetableId: string,

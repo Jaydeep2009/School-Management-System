@@ -12,8 +12,9 @@ import { apiService } from '../services/api';
 import { ArrowLeft, Save } from 'lucide-react';
 
 interface FeeCategoryFormData {
-  category_name: string;
-  description: string;
+  code: string;
+  name: string;
+  status: 'active' | 'inactive';
 }
 
 export function FeeCategoryForm() {
@@ -23,8 +24,9 @@ export function FeeCategoryForm() {
   const isEditMode = id && id !== 'new';
 
   const [formData, setFormData] = useState<FeeCategoryFormData>({
-    category_name: '',
-    description: '',
+    code: '',
+    name: '',
+    status: 'active',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,8 +47,9 @@ export function FeeCategoryForm() {
       const category = response.data.find((c: any) => c.id === id);
       if (category) {
         setFormData({
-          category_name: category.category_name || '',
-          description: category.description || '',
+          code: category.code || '',
+          name: category.name || '',
+          status: category.status || 'active',
         });
       }
     } catch (err) {
@@ -60,7 +63,12 @@ export function FeeCategoryForm() {
     e.preventDefault();
     setError(null);
 
-    if (!formData.category_name.trim()) {
+    if (!formData.code.trim()) {
+      setError('Category code is required');
+      return;
+    }
+
+    if (!formData.name.trim()) {
       setError('Category name is required');
       return;
     }
@@ -69,10 +77,18 @@ export function FeeCategoryForm() {
 
     try {
       if (isEditMode && id) {
-        await apiService.updateFeeCategory(id, formData);
+        // Only send fields that can be updated
+        const updateData: { name?: string; status?: 'active' | 'inactive' } = {};
+        if (formData.name !== '') updateData.name = formData.name;
+        if (formData.status) updateData.status = formData.status;
+        
+        await apiService.updateFeeCategory(id, updateData);
         navigate('/fees/categories');
       } else {
-        await apiService.createFeeCategory(formData);
+        await apiService.createFeeCategory({
+          code: formData.code,
+          name: formData.name,
+        });
         navigate('/fees/categories');
       }
     } catch (err) {
@@ -80,10 +96,6 @@ export function FeeCategoryForm() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const updateField = (field: keyof FeeCategoryFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   if (!user) return null;
@@ -130,16 +142,44 @@ export function FeeCategoryForm() {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Category Code */}
+              <div>
+                <label htmlFor="code" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                  Category Code <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <input
+                  id="code"
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  disabled={isSubmitting || !!isEditMode}
+                  placeholder="e.g., TUITION, LIBRARY, SPORTS"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    textTransform: 'uppercase',
+                  }}
+                />
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                  Unique code for this category (alphanumeric, - and _ allowed)
+                  {isEditMode && ' - Cannot be changed after creation'}
+                </p>
+              </div>
+
               {/* Category Name */}
               <div>
-                <label htmlFor="category_name" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                <label htmlFor="name" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
                   Category Name <span style={{ color: '#dc2626' }}>*</span>
                 </label>
                 <input
-                  id="category_name"
+                  id="name"
                   type="text"
-                  value={formData.category_name}
-                  onChange={(e) => updateField('category_name', e.target.value)}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   disabled={isSubmitting}
                   placeholder="e.g., Tuition Fee, Library Fee"
                   required
@@ -153,29 +193,30 @@ export function FeeCategoryForm() {
                 />
               </div>
 
-              {/* Description */}
-              <div>
-                <label htmlFor="description" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => updateField('description', e.target.value)}
-                  disabled={isSubmitting}
-                  placeholder="Optional description"
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    fontSize: '14px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    fontFamily: 'inherit',
-                    resize: 'vertical',
-                  }}
-                />
-              </div>
+              {/* Status */}
+              {isEditMode && (
+                <div>
+                  <label htmlFor="status" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                    Status
+                  </label>
+                  <select
+                    id="status"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+                    disabled={isSubmitting}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              )}
 
               {/* Form Actions */}
               <div style={{ display: 'flex', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>

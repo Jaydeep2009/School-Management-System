@@ -13,6 +13,7 @@ export interface AttendanceData {
   present: number;
   absent: number;
   notMarked: number;
+  averageAttendance?: number;
 }
 
 export interface AssessmentItem {
@@ -49,6 +50,14 @@ export interface AcademicYear {
   totalStudents?: number;
 }
 
+export interface FeesData {
+  totalCollected: number;
+  totalPending: number;
+  totalCharges: number;
+  chargeCount: number;
+  paymentCount: number;
+}
+
 export interface DashboardData {
   stats: DashboardStats;
   attendance: AttendanceData;
@@ -56,4 +65,5 @@ export interface DashboardData {
   birthdays: BirthdayPerson[];
   currentAcademicYear?: AcademicYear;
   recentActivity: ActivityItem[];
+  fees?: FeesData;
 }

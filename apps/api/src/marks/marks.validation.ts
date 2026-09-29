@@ -84,7 +84,7 @@ export const listAssessmentsQuerySchema = z.object({
   academic_year_id: z.string().optional(),
   classroom_id: z.string().optional(),
   subject_id: z.string().optional(),
-  is_published: z.enum(['true', 'false']).optional().transform(val => val === 'true'),
+  is_published: z.enum(['true', 'false']).optional().transform(val => val === undefined ? undefined : val === 'true'),
 });
 
 /**

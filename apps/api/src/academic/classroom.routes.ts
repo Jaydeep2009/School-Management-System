@@ -12,7 +12,8 @@ import { zValidator } from '@hono/zod-validator';
 import * as classroomService from './classroom.service';
 import * as classroomSchemas from './academic.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
-import { requireRole, ensureCanViewClassroom } from '../authz/authz.service';
+import { requirePrincipal } from '../auth/role.middleware';
+import { ensureCanViewClassroom } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
   CreateClassroomRequest,
@@ -36,7 +37,7 @@ classrooms.get('/', requireAuth, async (c) => {
       status: c.req.query('status') as 'active' | 'inactive' | 'archived' | undefined,
     };
     
-    const classroomList = await classroomService.list(c.env.DB, tenant.schoolId, filters);
+    const classroomList = await classroomService.listWithRelations(c.env.DB, tenant.schoolId, filters);
     return c.json({ data: classroomList }, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to list classrooms';
@@ -55,7 +56,7 @@ classrooms.get('/:id', requireAuth, async (c) => {
     const id = c.req.param('id')!; // Route guarantees id exists
     
     // Fetch classroom (tenant-scoped)
-    const classroom = await classroomService.getById(c.env.DB, id, tenant.schoolId);
+    const classroom = await classroomService.getByIdWithRelations(c.env.DB, id, tenant.schoolId);
     
     // Authorization check
     await ensureCanViewClassroom(c.env.DB, tenant, {
@@ -84,13 +85,11 @@ classrooms.get('/:id', requireAuth, async (c) => {
 classrooms.post(
   '/',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', classroomSchemas.createClassroomSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as CreateClassroomRequest;
       const classroom = await classroomService.create(c.env.DB, tenant.schoolId, body);
@@ -120,13 +119,11 @@ classrooms.post(
 classrooms.patch(
   '/:id',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', classroomSchemas.updateClassroomSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const id = c.req.param('id')!; // Route guarantees id exists
       const body = c.req.valid('json') as UpdateClassroomRequest;
@@ -152,6 +149,44 @@ classrooms.patch(
         return c.json({ error: 'Forbidden' }, 403);
       }
       const message = error instanceof Error ? error.message : 'Failed to update classroom';
+      return c.json({ error: message }, 500);
+    }
+  }
+);
+
+/**
+ * DELETE /classrooms/:id
+ * Delete classroom
+ * Authorization: Principal only
+ * Note: Only allows deletion if no enrollments exist
+ */
+classrooms.delete(
+  '/:id',
+  requireAuth,
+  requirePrincipal(),
+  async (c) => {
+    try {
+      const tenant = requireSchoolTenant(c);
+      const id = c.req.param('id')!;
+      
+      // Get classroom data for audit before deletion
+      const before = await classroomService.getById(c.env.DB, id, tenant.schoolId);
+      
+      // Delete classroom
+      await classroomService.deleteClassroom(c.env.DB, id, tenant.schoolId);
+      
+      // Audit log
+      await logAudit(c.env.DB, tenant, 'deleted', 'classroom', id, before, null);
+      
+      return c.json({ message: 'Classroom deleted successfully' }, 200);
+    } catch (error) {
+      if (error instanceof classroomService.ClassroomError) {
+        return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
+      }
+      if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message.includes('Forbidden')) {
+        return c.json({ error: 'Forbidden' }, 403);
+      }
+      const message = error instanceof Error ? error.message : 'Failed to delete classroom';
       return c.json({ error: message }, 500);
     }
   }

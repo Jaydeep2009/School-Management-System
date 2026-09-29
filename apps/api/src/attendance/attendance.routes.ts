@@ -20,6 +20,7 @@ import { zValidator } from '@hono/zod-validator';
 import * as attendanceService from './attendance.service';
 import * as attendanceSchemas from './attendance.schemas';
 import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
+import { requireTeacher, requirePrincipal, requirePrincipalOrTeacher } from '../auth/role.middleware';
 import { logAudit } from '../lib/audit/audit.service';
 import { AttendanceError } from './attendance.errors';
 import type {
@@ -32,15 +33,17 @@ const attendance = new Hono<AuthContext>();
 /**
  * POST /sessions
  * Create attendance session
- * Authorization: Principal or assigned teacher
+ * Authorization: TEACHER ONLY (principal has read-only access)
  */
 attendance.post(
   '/sessions',
   requireAuth,
+  requireTeacher(),
   zValidator('json', attendanceSchemas.createAttendanceSessionSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
+      
       const body = c.req.valid('json') as CreateAttendanceSessionRequest;
       
       const session = await attendanceService.createSession(c.env.DB, tenant, body);
@@ -135,15 +138,18 @@ attendance.get('/sessions/:id/entries', requireAuth, async (c) => {
 /**
  * PUT /sessions/:id/entries
  * Mark attendance (bulk update)
- * Authorization: Principal or assigned teacher (within edit window)
+ * Authorization: TEACHER ONLY - assigned teacher (within edit window)
+ * Principal has read-only access and cannot mark attendance
  */
 attendance.put(
   '/sessions/:id/entries',
   requireAuth,
+  requireTeacher(),
   zValidator('json', attendanceSchemas.markAttendanceSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
+      
       const sessionId = c.req.param('id')!;
       const body = c.req.valid('json') as MarkAttendanceRequest;
       
@@ -176,7 +182,7 @@ attendance.put(
  * Lock attendance session
  * Authorization: Principal or assigned teacher
  */
-attendance.post('/sessions/:id/lock', requireAuth, async (c) => {
+attendance.post('/sessions/:id/lock', requireAuth, requirePrincipalOrTeacher(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const sessionId = c.req.param('id')!;
@@ -201,7 +207,7 @@ attendance.post('/sessions/:id/lock', requireAuth, async (c) => {
  * Unlock attendance session
  * Authorization: Principal only
  */
-attendance.post('/sessions/:id/unlock', requireAuth, async (c) => {
+attendance.post('/sessions/:id/unlock', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const sessionId = c.req.param('id')!;

@@ -7,6 +7,20 @@
 import { z } from 'zod';
 
 /**
+ * Custom ID validator - accepts both UUID and MD5 hash formats
+ * UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ * MD5: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (32 hex chars)
+ */
+const idSchema = z.string().refine(
+  (val) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const md5Regex = /^[0-9a-f]{32}$/i;
+    return uuidRegex.test(val) || md5Regex.test(val);
+  },
+  { message: 'Invalid ID format (expected UUID or MD5 hash)' }
+);
+
+/**
  * Academic Year Schemas
  */
 export const academicYearStatusSchema = z.enum(['upcoming', 'current', 'closed']);
@@ -47,12 +61,12 @@ export const updateAcademicYearSchema = z.object({
 export const classroomStatusSchema = z.enum(['active', 'inactive', 'archived']);
 
 export const createClassroomSchema = z.object({
-  academic_year_id: z.string().uuid(),
+  academic_year_id: idSchema,
   classroom_code: z.string().min(1).max(50),
   grade_name: z.string().min(1).max(50),
   division_name: z.string().min(1).max(50),
   grade_level: z.number().int().min(1).max(20),
-  class_teacher_id: z.string().uuid().optional(),
+  class_teacher_id: idSchema.optional(),
 });
 
 export const updateClassroomSchema = z.object({
@@ -60,7 +74,7 @@ export const updateClassroomSchema = z.object({
   grade_name: z.string().min(1).max(50).optional(),
   division_name: z.string().min(1).max(50).optional(),
   grade_level: z.number().int().min(1).max(20).optional(),
-  class_teacher_id: z.string().uuid().nullable().optional(),
+  class_teacher_id: idSchema.nullable().optional(),
   status: classroomStatusSchema.optional(),
 });
 
@@ -86,13 +100,13 @@ export const updateSubjectSchema = z.object({
  * Teaching Assignment Schemas
  */
 export const createTeachingAssignmentSchema = z.object({
-  teacher_id: z.string().uuid(),
-  classroom_id: z.string().uuid(),
-  subject_id: z.string().uuid(),
+  teacher_id: idSchema,
+  classroom_id: idSchema,
+  subject_id: idSchema,
 });
 
 export const updateTeachingAssignmentSchema = z.object({
-  teacher_id: z.string().uuid().nullable().optional(),
+  teacher_id: idSchema.nullable().optional(),
 });
 
 /**
@@ -102,9 +116,9 @@ export const enrollmentStatusSchema = z.enum(['planned', 'active', 'completed', 
 export const enrollmentOutcomeSchema = z.enum(['promoted', 'repeated', 'dropped']).nullable();
 
 export const createEnrollmentSchema = z.object({
-  academic_year_id: z.string().uuid(),
-  classroom_id: z.string().uuid(),
-  student_id: z.string().uuid(),
+  academic_year_id: idSchema,
+  classroom_id: idSchema,
+  student_id: idSchema,
   roll_number: z.string().max(50).optional(),
   joined_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: enrollmentStatusSchema.optional(),

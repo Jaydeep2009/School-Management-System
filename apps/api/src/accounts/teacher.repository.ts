@@ -18,7 +18,9 @@ export async function findById(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, employee_code,
+              first_name, middle_name, last_name,
+              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
               phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
        FROM teacher_profiles
        WHERE user_id = ?
@@ -42,7 +44,9 @@ export async function findByUserId(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, employee_code,
+              first_name, middle_name, last_name,
+              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
               phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
        FROM teacher_profiles
        WHERE user_id = ?
@@ -66,7 +70,9 @@ export async function findByEmployeeCode(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
+      `SELECT user_id as id, user_id, school_id, employee_code,
+              first_name, middle_name, last_name,
+              (first_name || COALESCE(' ' || middle_name, '') || ' ' || last_name) as full_name,
               phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
        FROM teacher_profiles
        WHERE employee_code = ?
@@ -91,29 +97,34 @@ export async function findAll(
     search?: string;
   }
 ): Promise<TeacherProfile[]> {
-  let query = `SELECT user_id as id, user_id, school_id, employee_code, first_name, middle_name, last_name,
-                      phone, date_of_birth, dob_md, joining_date, status, created_at, updated_at
-               FROM teacher_profiles
-               WHERE school_id = ?`;
+  let query = `SELECT t.user_id as id, t.user_id, t.school_id, t.employee_code,
+                      t.first_name, t.middle_name, t.last_name,
+                      (t.first_name || COALESCE(' ' || t.middle_name, '') || ' ' || t.last_name) as full_name,
+                      t.phone, t.date_of_birth, t.dob_md, t.joining_date, t.status, t.created_at, t.updated_at,
+                      u.login_id
+               FROM teacher_profiles t
+               JOIN users u ON t.user_id = u.id
+               WHERE t.school_id = ?`;
   
   const bindings: unknown[] = [schoolId];
 
   if (filters?.status) {
-    query += ' AND status = ?';
+    query += ' AND t.status = ?';
     bindings.push(filters.status);
   }
 
   if (filters?.search) {
     query += ` AND (
-      first_name LIKE ? OR
-      last_name LIKE ? OR
-      employee_code LIKE ?
+      t.first_name LIKE ? OR
+      t.last_name LIKE ? OR
+      t.employee_code LIKE ? OR
+      u.login_id LIKE ?
     )`;
     const searchPattern = `%${filters.search}%`;
-    bindings.push(searchPattern, searchPattern, searchPattern);
+    bindings.push(searchPattern, searchPattern, searchPattern, searchPattern);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY t.created_at DESC';
 
   const result = await db
     .prepare(query)

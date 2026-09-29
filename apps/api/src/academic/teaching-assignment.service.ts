@@ -165,3 +165,24 @@ export async function update(
 
   return getById(db, id, schoolId);
 }
+
+/**
+ * Delete teaching assignment
+ */
+export async function deleteAssignment(
+  db: D1Database,
+  id: string,
+  schoolId: string
+): Promise<void> {
+  const assignment = await getById(db, id, schoolId);
+  
+  const result = await teachingAssignmentRepo.deleteAssignment(db, id, schoolId);
+  
+  if (!result) {
+    throw new TeachingAssignmentError(
+      'Failed to delete teaching assignment',
+      'DELETE_FAILED',
+      500
+    );
+  }
+}

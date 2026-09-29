@@ -14,6 +14,8 @@ interface AttendanceData {
   present: number;
   absent: number;
   notMarked: number;
+  averageAttendance?: number; // Overall average attendance percentage
+  trend?: 'up' | 'down' | 'stable'; // Trend compared to last week
 }
 
 interface AttendanceOverviewProps {
@@ -92,7 +94,7 @@ export function AttendanceOverview({ data, loading, error, onRetry }: Attendance
           </ResponsiveContainer>
           <div className="attendance-chart-center">
             <div className="attendance-percentage">{presentPercentage}%</div>
-            <div className="attendance-label">Present</div>
+            <div className="attendance-label">Present Today</div>
           </div>
         </div>
 
@@ -129,6 +131,28 @@ export function AttendanceOverview({ data, loading, error, onRetry }: Attendance
               <div className="attendance-legend-value">{data.notMarked}</div>
             </div>
           </div>
+
+          {data.averageAttendance !== undefined && (
+            <div style={{ 
+              marginTop: '16px', 
+              paddingTop: '16px', 
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>
+                Overall Average
+              </div>
+              <div style={{
+                fontSize: '18px',
+                fontWeight: 600,
+                color: data.averageAttendance >= 90 ? '#16a34a' : data.averageAttendance >= 75 ? '#f59e0b' : '#dc2626'
+              }}>
+                {data.averageAttendance.toFixed(1)}%
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Card>

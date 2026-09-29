@@ -150,6 +150,33 @@ export interface FeeChargeWithStudent extends FeeCharge {
 }
 
 /**
+ * Fee charge with full details including payment status
+ */
+export interface FeeChargeWithDetails {
+  id: string;
+  school_id: string;
+  student_id: string;
+  academic_year_id: string;
+  enrollment_id: string | null;
+  fee_category_id: string | null;
+  kind: 'fee' | 'concession' | 'carry_forward';
+  title: string;
+  amount_paise: number;
+  amount: number; // in rupees
+  due_on: string | null;
+  created_by: string;
+  created_at: number;
+  voided_at: number | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  student_name: string;
+  student_code: string;
+  category_name: string | null;
+  total_paid: number; // in rupees
+  status: 'pending' | 'partially_paid' | 'paid';
+}
+
+/**
  * Fee payment with student details
  */
 export interface FeePaymentWithStudent extends FeePayment {

@@ -10,6 +10,7 @@ import teachingAssignmentRoutes from './academic/teaching-assignment.routes';
 import enrollmentRoutes from './academic/enrollment.routes';
 import teacherRoutes from './accounts/teacher.routes';
 import studentRoutes from './accounts/student.routes';
+import studentMeRoutes from './students/student-me.routes';
 import meRoutes from './accounts/me.routes';
 import attendanceRoutes from './attendance/attendance.routes';
 import marksRoutes from './marks/marks.routes';
@@ -46,6 +47,7 @@ app.route('/enrollments', enrollmentRoutes);
 app.route('/teachers', teacherRoutes);
 app.route('/teachers', profilesRoutes); // Profile operations
 app.route('/students', studentRoutes);
+app.route('/students/me', studentMeRoutes); // Student self-service routes
 app.route('/students', profilesRoutes); // Profile operations
 app.route('/attendance', attendanceRoutes);
 app.route('/marks', marksRoutes);

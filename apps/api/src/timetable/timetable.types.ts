@@ -23,6 +23,7 @@ export interface Timetable {
   version: number;
   name: string;
   status: TimetableStatus;
+  image_url: string | null;
   created_by: string;
   published_at: number | null;
   archived_at: number | null;

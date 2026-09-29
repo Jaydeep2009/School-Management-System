@@ -8,19 +8,22 @@ import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { StatCard } from '../components/dashboard/StatCard';
 import { AttendanceOverview } from '../components/dashboard/AttendanceOverview';
 import { AssessmentProgress } from '../components/dashboard/AssessmentProgress';
+import { FeesOverview } from '../components/dashboard/FeesOverview';
 import { QuickActions } from '../components/dashboard/QuickActions';
 import { RecentActivity } from '../components/dashboard/RecentActivity';
 import { BirthdayList } from '../components/dashboard/BirthdayList';
 import { AcademicYearCard } from '../components/dashboard/AcademicYearCard';
 import { useAuth } from '../hooks/useAuth';
 import { useDashboard } from '../hooks/useDashboard';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 import './PrincipalDashboard.css';
 
 export function PrincipalDashboard() {
   const { user, logout } = useAuth();
+  const { selectedYear } = useAcademicYear();
   const { data, isLoading, error, retry } = useDashboard(
     user?.schoolId || '',
-    ''
+    selectedYear?.id || ''
   );
 
   if (!user) {
@@ -31,8 +34,6 @@ export function PrincipalDashboard() {
     <Layout
       schoolName={'SMS'}
       principalName={"User"}
-      currentAcademicYear={data?.currentAcademicYear?.label}
-      academicYearStatus={data?.currentAcademicYear?.status}
       onLogout={logout}
     >
       <DashboardHeader
@@ -85,6 +86,13 @@ export function PrincipalDashboard() {
         <div className="dashboard-main">
           <AttendanceOverview
             data={data?.attendance}
+            loading={isLoading}
+            error={error || undefined}
+            onRetry={retry}
+          />
+
+          <FeesOverview
+            data={data?.fees}
             loading={isLoading}
             error={error || undefined}
             onRetry={retry}

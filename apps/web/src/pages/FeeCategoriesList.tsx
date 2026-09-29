@@ -91,19 +91,33 @@ export function FeeCategoriesList() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#64748b' }}>Category Name</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#64748b' }}>Description</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#64748b' }}>Code</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600, color: '#64748b' }}>Name</th>
+                      <th style={{ padding: '12px', textAlign: 'center', fontSize: '14px', fontWeight: 600, color: '#64748b' }}>Status</th>
                       <th style={{ padding: '12px', textAlign: 'right', fontSize: '14px', fontWeight: 600, color: '#64748b' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {categories.map((category) => (
                       <tr key={category.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '12px', fontSize: '14px', fontWeight: 500, color: '#0f172a' }}>
-                          {category.category_name}
+                        <td style={{ padding: '12px', fontSize: '14px', fontWeight: 600, color: '#0f172a', fontFamily: 'monospace' }}>
+                          {category.code}
                         </td>
-                        <td style={{ padding: '12px', fontSize: '14px', color: '#64748b' }}>
-                          {category.description || '—'}
+                        <td style={{ padding: '12px', fontSize: '14px', fontWeight: 500, color: '#0f172a' }}>
+                          {category.name}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            background: category.status === 'active' ? '#dcfce7' : '#f3f4f6',
+                            color: category.status === 'active' ? '#166534' : '#6b7280',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            textTransform: 'capitalize',
+                          }}>
+                            {category.status}
+                          </span>
                         </td>
                         <td style={{ padding: '12px', textAlign: 'right' }}>
                           <Button

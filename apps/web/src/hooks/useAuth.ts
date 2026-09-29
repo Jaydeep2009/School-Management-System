@@ -100,10 +100,10 @@ export function useAuth() {
           navigate('/dashboard');
           break;
         case 'teacher':
-          navigate('/dashboard');
+          navigate('/teacher/dashboard');
           break;
         case 'student':
-          navigate('/dashboard');
+          navigate('/student/dashboard');
           break;
         default:
           throw new Error('Invalid user role');

@@ -43,28 +43,41 @@ export async function findAll(
     subject_id?: string;
   }
 ): Promise<TeachingAssignment[]> {
-  let query = `SELECT id, school_id, teacher_id, classroom_id, subject_id, created_at, updated_at
-               FROM teaching_assignments
-               WHERE school_id = ?`;
+  let query = `SELECT 
+                 ta.id, 
+                 ta.school_id, 
+                 ta.teacher_id, 
+                 ta.classroom_id, 
+                 ta.subject_id, 
+                 ta.created_at, 
+                 ta.updated_at,
+                 (tp.first_name || COALESCE(' ' || tp.middle_name, '') || ' ' || tp.last_name) as teacher_name,
+                 c.classroom_code || ' - ' || c.grade_name || ' ' || c.division_name as classroom_name,
+                 s.name as subject_name
+               FROM teaching_assignments ta
+               LEFT JOIN teacher_profiles tp ON ta.teacher_id = tp.user_id
+               LEFT JOIN classrooms c ON ta.classroom_id = c.id
+               LEFT JOIN subjects s ON ta.subject_id = s.id
+               WHERE ta.school_id = ?`;
   
   const bindings: unknown[] = [schoolId];
 
   if (filters?.teacher_id) {
-    query += ' AND teacher_id = ?';
+    query += ' AND ta.teacher_id = ?';
     bindings.push(filters.teacher_id);
   }
 
   if (filters?.classroom_id) {
-    query += ' AND classroom_id = ?';
+    query += ' AND ta.classroom_id = ?';
     bindings.push(filters.classroom_id);
   }
 
   if (filters?.subject_id) {
-    query += ' AND subject_id = ?';
+    query += ' AND ta.subject_id = ?';
     bindings.push(filters.subject_id);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY ta.created_at DESC';
 
   const result = await db
     .prepare(query)
@@ -179,6 +192,27 @@ export async function update(
          AND school_id = ?`
     )
     .bind(...bindings)
+    .run();
+
+  return (result.meta?.changes ?? 0) > 0;
+}
+
+/**
+ * Delete teaching assignment
+ * SECURITY: Filters by school_id
+ */
+export async function deleteAssignment(
+  db: D1Database,
+  id: string,
+  schoolId: string
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `DELETE FROM teaching_assignments
+       WHERE id = ?
+         AND school_id = ?`
+    )
+    .bind(id, schoolId)
     .run();
 
   return (result.meta?.changes ?? 0) > 0;

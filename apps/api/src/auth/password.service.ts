@@ -9,7 +9,7 @@ import { scrypt } from '@noble/hashes/scrypt.js';
 import { randomBytes } from '@noble/hashes/utils.js';
 
 const SCRYPT_PARAMS = {
-  N: 16384, // CPU/memory cost (2^14)
+  N: 8192,  // CPU/memory cost (2^13) - reduced for better performance in Workers
   r: 8,     // block size
   p: 1,     // parallelization
   dkLen: 32 // derived key length

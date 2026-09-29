@@ -33,11 +33,32 @@ interface TeacherDetail {
   };
 }
 
+interface TeachingAssignment {
+  assignment_id: string;
+  subject_id: string;
+  subject_name: string;
+  subject_code: string;
+  classroom_id: string;
+  classroom_code: string;
+  classroom_name: string;
+  academic_year: string;
+}
+
+interface ClassTeacherOf {
+  classroom_id: string;
+  classroom_code: string;
+  classroom_name: string;
+  academic_year: string;
+  student_count: number;
+}
+
 export function TeacherDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [teacher, setTeacher] = useState<TeacherDetail | null>(null);
+  const [teachingAssignments, setTeachingAssignments] = useState<TeachingAssignment[]>([]);
+  const [classTeacherOf, setClassTeacherOf] = useState<ClassTeacherOf[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -51,8 +72,18 @@ export function TeacherDetail() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiService.getTeacher(id);
-      setTeacher(response.data);
+      const [teacherRes, assignmentsRes] = await Promise.all([
+        apiService.getTeacher(id),
+        apiService.getTeacherAssignments(id),
+      ]);
+      // Flatten the response structure from { data: { profile, user } } to { ...profile, user }
+      const flattened = {
+        ...teacherRes.data.profile,
+        user: teacherRes.data.user,
+      };
+      setTeacher(flattened);
+      setTeachingAssignments(assignmentsRes.data.teaching_assignments || []);
+      setClassTeacherOf(assignmentsRes.data.class_teacher_of || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load teacher');
     } finally {
@@ -226,6 +257,122 @@ export function TeacherDetail() {
             </div>
           </Card>
         </div>
+
+        {/* Class Teacher Of */}
+        {classTeacherOf.length > 0 && (
+          <div style={{ marginTop: '24px' }}>
+            <Card>
+              <div style={{ padding: '24px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
+                Class Teacher Of ({classTeacherOf.length})
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+                {classTeacherOf.map((classroom) => (
+                  <div
+                    key={classroom.classroom_id}
+                    style={{
+                      padding: '16px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onClick={() => navigate(`/classrooms/${classroom.classroom_id}`)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#3b82f6';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>
+                      {classroom.classroom_name}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
+                      {classroom.classroom_code}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        {classroom.academic_year}
+                      </span>
+                      <span style={{
+                        padding: '2px 8px',
+                        background: '#dbeafe',
+                        color: '#1e40af',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                      }}>
+                        {classroom.student_count} students
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+          </div>
+        )}
+
+        {/* Teaching Assignments */}
+        {teachingAssignments.length > 0 && (
+          <div style={{ marginTop: '24px' }}>
+            <Card>
+              <div style={{ padding: '24px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
+                Teaching Assignments ({teachingAssignments.length})
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+                {teachingAssignments.map((assignment) => (
+                  <div
+                    key={assignment.assignment_id}
+                    style={{
+                      padding: '16px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onClick={() => navigate(`/classrooms/${assignment.classroom_id}`)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#10b981';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(16, 185, 129, 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>
+                      {assignment.subject_name}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '4px' }}>
+                      {assignment.classroom_name}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        {assignment.academic_year}
+                      </span>
+                      <span style={{
+                        padding: '2px 8px',
+                        background: '#d1fae5',
+                        color: '#065f46',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                      }}>
+                        {assignment.subject_code}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+          </div>
+        )}
       </div>
     </Layout>
   );

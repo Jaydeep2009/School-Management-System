@@ -13,28 +13,53 @@ import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
 import type { Assessment } from '../types/entities';
 import { BarChart3, Plus } from 'lucide-react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 export function Marks() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { selectedYear } = useAcademicYear();
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadAssessments();
-  }, []);
+  }, [selectedYear?.id]);
+
+  // Also reload when component mounts or window regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('[Marks] Window focused, reloading assessments');
+      loadAssessments();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [selectedYear?.id]);
 
   const loadAssessments = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const academicYearId = '';
-      if (academicYearId) {
-        const response = await apiService.getAssessments({ academic_year_id: academicYearId });
-        setAssessments(response.data || response);
+      if (selectedYear?.id) {
+        const response = await apiService.getAssessments({ academic_year_id: selectedYear.id });
+        const data = response.data || response;
+        setAssessments(data);
+        
+        // Debug: log if no assessments found
+        if (!data || data.length === 0) {
+          console.log('[Marks] No assessments found for year:', selectedYear.id);
+          console.log('[Marks] Trying without filter...');
+          // Try without filter to see if assessments exist
+          const allResponse = await apiService.getAssessments({});
+          console.log('[Marks] All assessments:', allResponse.data || allResponse);
+        }
+      } else {
+        setAssessments([]);
       }
     } catch (err) {
+      console.error('[Marks] Error loading assessments:', err);
       setError(err instanceof Error ? err.message : 'Failed to load assessments');
     } finally {
       setIsLoading(false);
@@ -43,8 +68,16 @@ export function Marks() {
 
   if (!user) return null;
 
+  const getNewAssessmentPath = () => {
+    return user.role === 'teacher' ? '/teacher/marks/new' : '/marks/new';
+  };
+
+  const getAssessmentPath = (id: string) => {
+    return user.role === 'teacher' ? `/teacher/marks/${id}` : `/marks/${id}`;
+  };
+
   return (
-    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout} role={user.role}>
       <div style={{ padding: '32px' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -53,7 +86,7 @@ export function Marks() {
             </h1>
             <p style={{ fontSize: '14px', color: '#64748b' }}>Manage assessments and student marks</p>
           </div>
-          <Button onClick={() => navigate('/marks/new')}>
+          <Button onClick={() => navigate(getNewAssessmentPath())}>
             <Plus size={16} style={{ marginRight: '8px' }} />
             New Assessment
           </Button>
@@ -68,7 +101,7 @@ export function Marks() {
                 <BarChart3 size={48} style={{ color: '#cbd5e1', marginBottom: '16px' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No assessments</h3>
                 <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>Start by creating your first assessment</p>
-                <Button onClick={() => navigate('/marks/new')}>Create Assessment</Button>
+                <Button onClick={() => navigate(getNewAssessmentPath())}>Create Assessment</Button>
               </div>
             )}
             {!isLoading && !error && assessments.length > 0 && (
@@ -77,7 +110,7 @@ export function Marks() {
                   <div
                     key={assessment.id}
                     style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
-                    onClick={() => navigate(`/marks/${assessment.id}`)}
+                    onClick={() => navigate(getAssessmentPath(assessment.id))}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <div>
@@ -86,7 +119,7 @@ export function Marks() {
                           {assessment.classroom_name} - {assessment.subject_name}
                         </div>
                         <div style={{ fontSize: '14px', color: '#64748b' }}>
-                          Max Marks: {assessment.max_marks} {assessment.weightage && `| Weightage: ${assessment.weightage}%`}
+                          Max Marks: {assessment.max_marks}
                         </div>
                       </div>
                       <span style={{

@@ -128,6 +128,34 @@ fees.put('/categories/:id', requireAuth, async (c) => {
  */
 
 /**
+ * GET /fees/charges
+ * List all fee charges (with optional filters)
+ * Authorization: Principal only
+ */
+fees.get('/charges', requireAuth, async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    const academicYearId = c.req.query('academic_year_id');
+    const studentId = c.req.query('student_id');
+    const status = c.req.query('status') as 'pending' | 'partially_paid' | 'paid' | undefined;
+
+    const charges = await feesService.listAllCharges(
+      c.env.DB,
+      tenant,
+      { academicYearId, studentId, status }
+    );
+
+    return c.json({ data: charges }, 200);
+  } catch (error) {
+    if (error instanceof FeesError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to list fee charges';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
  * POST /fees/charges
  * Create fee charge
  * Authorization: Principal only
@@ -317,9 +345,31 @@ fees.post('/payments/:id/void', requireAuth, async (c) => {
 
 /**
  * =====================================================================
- * FEE SUMMARY
+ * FEE SUMMARY & STATISTICS
  * =====================================================================
  */
+
+/**
+ * GET /fees/stats
+ * Get school-wide fees statistics for dashboard
+ * Authorization: Principal only
+ */
+fees.get('/stats', requireAuth, async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    const academicYearId = c.req.query('academic_year_id');
+
+    const stats = await feesService.getSchoolFeesStats(c.env.DB, tenant, academicYearId);
+
+    return c.json({ data: stats }, 200);
+  } catch (error) {
+    if (error instanceof FeesError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to get fees statistics';
+    return c.json({ error: message }, 500);
+  }
+});
 
 /**
  * GET /fees/students/:studentId/summary

@@ -251,6 +251,7 @@ export async function bulkProvisionStudents(
         parent_name: studentData.parent_name || null,
         parent_phone: studentData.parent_phone || null,
         parent_email: null,
+        admission_batch: null,
         status: 'active',
       });
 

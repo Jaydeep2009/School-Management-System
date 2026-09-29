@@ -8,6 +8,16 @@ import type { TenantContext } from '../auth/auth.types';
 import { FeesError } from './fees.errors';
 
 /**
+ * Ensure user can manage fees (list all charges, view summaries)
+ * Only Principal can manage fees
+ */
+export function ensureCanManageFees(tenant: TenantContext): void {
+  if (tenant.role !== 'principal') {
+    throw FeesError.unauthorized('manage fees');
+  }
+}
+
+/**
  * Ensure user can manage fee categories
  * Only Principal can manage categories
  */

@@ -29,6 +29,27 @@ export class ClassroomError extends Error {
 }
 
 /**
+ * Get classroom by ID with related data
+ */
+export async function getByIdWithRelations(
+  db: D1Database,
+  id: string,
+  schoolId: string
+): Promise<any> {
+  const classroom = await classroomRepo.findByIdWithRelations(db, id, schoolId);
+  
+  if (!classroom) {
+    throw new ClassroomError(
+      'Classroom not found',
+      'CLASSROOM_NOT_FOUND',
+      404
+    );
+  }
+
+  return classroom;
+}
+
+/**
  * Get classroom by ID
  */
 export async function getById(
@@ -47,6 +68,20 @@ export async function getById(
   }
 
   return classroom;
+}
+
+/**
+ * List classrooms with related data
+ */
+export async function listWithRelations(
+  db: D1Database,
+  schoolId: string,
+  filters?: {
+    academic_year_id?: string;
+    status?: ClassroomStatus;
+  }
+): Promise<any[]> {
+  return classroomRepo.findAllWithRelations(db, schoolId, filters);
 }
 
 /**
@@ -205,4 +240,43 @@ export async function update(
   }
 
   return getById(db, id, schoolId);
+}
+
+/**
+ * Delete classroom
+ * SECURITY: School-scoped
+ * RULE: Cannot delete if enrollments exist
+ */
+export async function deleteClassroom(
+  db: D1Database,
+  id: string,
+  schoolId: string
+): Promise<void> {
+  // Verify classroom exists and belongs to school
+  await getById(db, id, schoolId);
+  
+  // Check for enrollments
+  const enrollmentCheck = await db
+    .prepare('SELECT COUNT(*) as count FROM enrollments WHERE classroom_id = ?')
+    .bind(id)
+    .first<{ count: number }>();
+    
+  if (enrollmentCheck && enrollmentCheck.count > 0) {
+    throw new ClassroomError(
+      'Cannot delete classroom with enrolled students. Remove enrollments first.',
+      'HAS_ENROLLMENTS',
+      400
+    );
+  }
+  
+  // Delete classroom
+  const result = await classroomRepo.deleteClassroom(db, id, schoolId);
+  
+  if (!result) {
+    throw new ClassroomError(
+      'Failed to delete classroom',
+      'DELETE_FAILED',
+      500
+    );
+  }
 }

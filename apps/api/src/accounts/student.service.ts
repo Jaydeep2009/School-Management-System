@@ -113,6 +113,21 @@ export async function getByIdWithUser(
 }
 
 /**
+ * List students with enrollment info
+ */
+export async function listWithEnrollment(
+  db: D1Database,
+  schoolId: string,
+  academicYearId?: string,
+  filters?: {
+    status?: StudentStatus;
+    search?: string;
+  }
+): Promise<any[]> {
+  return studentRepo.findAllWithEnrollment(db, schoolId, academicYearId, filters);
+}
+
+/**
  * List students
  */
 export async function list(
@@ -231,9 +246,9 @@ export async function create(
           user_id, school_id, student_code, admission_number,
           first_name, middle_name, last_name, gender, date_of_birth, dob_md,
           phone, email, address, parent_name, parent_phone, parent_email,
-          status, created_at, updated_at
+          admission_batch, status, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         userId,
@@ -252,6 +267,7 @@ export async function create(
         data.parent_name || null,
         data.parent_phone || null,
         data.parent_email || null,
+        data.admission_batch || null,
         'active',
         now,
         now

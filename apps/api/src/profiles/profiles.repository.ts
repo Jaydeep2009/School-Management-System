@@ -321,7 +321,7 @@ export async function findTeacherBirthdays(
   dobMdFilter?: string
 ): Promise<TeacherBirthday[]> {
   let query = `
-    SELECT user_id, employee_code, first_name, middle_name, last_name, dob_md
+    SELECT user_id, employee_code, first_name, middle_name, last_name, dob_md, date_of_birth as full_dob
     FROM teacher_profiles
     WHERE school_id = ? AND dob_md IS NOT NULL AND status = 'active'
   `;
@@ -353,7 +353,7 @@ export async function findTeacherBirthdaysInMonth(
   
   const result = await db
     .prepare(
-      `SELECT user_id, employee_code, first_name, middle_name, last_name, dob_md
+      `SELECT user_id, employee_code, first_name, middle_name, last_name, dob_md, date_of_birth as full_dob
        FROM teacher_profiles
        WHERE school_id = ?
          AND dob_md IS NOT NULL
@@ -387,6 +387,7 @@ export async function findStudentBirthdays(
       sp.middle_name,
       sp.last_name,
       sp.dob_md,
+      sp.date_of_birth as full_dob,
       c.code as classroom_code,
       c.grade_name,
       c.division_name
@@ -440,6 +441,7 @@ export async function findStudentBirthdaysInMonth(
       sp.middle_name,
       sp.last_name,
       sp.dob_md,
+      sp.date_of_birth as full_dob,
       c.code as classroom_code,
       c.grade_name,
       c.division_name

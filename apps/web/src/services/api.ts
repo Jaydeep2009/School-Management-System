@@ -37,9 +37,12 @@ export class ApiService {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+    const headers: Record<string, string> = {};
+
+    // Don't set Content-Type for FormData - browser will set it automatically
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (options.headers) {
       Object.assign(headers, options.headers);
@@ -60,7 +63,27 @@ export class ApiService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      const errorMessage = error.error || error.message || 'Request failed';
+      console.error('API Error Response:', error);
+      let errorMessage = 'Request failed';
+      
+      if (typeof error.error === 'string') {
+        errorMessage = error.error;
+      } else if (typeof error.message === 'string') {
+        errorMessage = error.message;
+      } else if (typeof error.error === 'object') {
+        // Check if it's a Zod validation error
+        if (error.error.issues && Array.isArray(error.error.issues)) {
+          const issues = error.error.issues.map((issue: any) => 
+            `${issue.path.join('.')}: ${issue.message}`
+          ).join(', ');
+          errorMessage = `Validation error: ${issues}`;
+        } else {
+          errorMessage = JSON.stringify(error.error);
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       throw new ApiError(response.status, errorMessage);
     }
 
@@ -211,6 +234,15 @@ export class ApiService {
     return this.request<{ data: any }>(`/teachers/${id}`);
   }
 
+  async getTeacherAssignments(id: string) {
+    return this.request<{ 
+      data: { 
+        teaching_assignments: any[]; 
+        class_teacher_of: any[]; 
+      } 
+    }>(`/teachers/${id}/assignments`);
+  }
+
   async createTeacher(data: any) {
     return this.request<{ data: any }>('/teachers', {
       method: 'POST',
@@ -264,6 +296,12 @@ export class ApiService {
     return this.request<{ data: any }>(`/classrooms/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  async deleteClassroom(id: string) {
+    return this.request<{ data: any }>(`/classrooms/${id}`, {
+      method: 'DELETE',
     });
   }
 
@@ -332,7 +370,7 @@ export class ApiService {
         return acc;
       }, {} as Record<string, string>)
     ).toString() : '';
-    return this.request<{ data: any[] }>(`/birthdays/upcoming${query}`);
+    return this.request<{ data: any[] }>(`/profiles/birthdays/upcoming${query}`);
   }
 
   // ========================================
@@ -418,14 +456,12 @@ export class ApiService {
   }
 
   async createAssessment(data: {
-    name: string;
-    academic_year_id: string;
     classroom_id: string;
     subject_id: string;
-    assessment_type: string;
+    name: string;
     max_marks: number;
-    weightage: number;
-    scheduled_date?: string;
+    weightage?: number;
+    held_on?: string;
   }) {
     return this.request<{ data: any }>('/marks/assessments', {
       method: 'POST',
@@ -455,6 +491,26 @@ export class ApiService {
   async getMarksEntries(params?: Record<string, any>) {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return this.request<{ data: any[] }>(`/marks/entries${query}`);
+  }
+
+  async getAssessmentMarks(assessmentId: string) {
+    return this.request<{ data: any[] }>(`/marks/assessments/${assessmentId}/marks`);
+  }
+
+  async updateAssessmentMarks(assessmentId: string, entries: Array<{
+    student_id: string;
+    status: 'graded' | 'absent' | 'exempt';
+    marks_obtained: number | null;
+  }>) {
+    return this.request<{ data: any }>(`/marks/assessments/${assessmentId}/marks`, {
+      method: 'PUT',
+      body: JSON.stringify({ entries }),
+    });
+  }
+
+  async getClassroomMarksReport(classroomId: string, params?: Record<string, any>) {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.request<{ data: any[] }>(`/marks/classrooms/${classroomId}/report${query}`);
   }
 
   async createMarksEntry(data: {
@@ -576,14 +632,14 @@ export class ApiService {
     return this.request<{ data: any[] }>(`/fees/categories${query}`);
   }
 
-  async createFeeCategory(data: { category_name: string; description?: string }) {
+  async createFeeCategory(data: { code: string; name: string }) {
     return this.request<{ data: any }>('/fees/categories', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateFeeCategory(id: string, data: { category_name: string; description?: string }) {
+  async updateFeeCategory(id: string, data: { name?: string; status?: 'active' | 'inactive' }) {
     return this.request<{ data: any }>(`/fees/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -596,17 +652,36 @@ export class ApiService {
   }
 
   async createFeeCharge(data: {
-    fee_category_id: string;
+    fee_category_id?: string;
     academic_year_id: string;
     classroom_id?: string;
     student_id?: string;
     amount: number;
-    due_at?: number;
-    description?: string;
+    due_date?: string;
+    title: string;
   }) {
+    // Convert to backend format
+    const backendData: any = {
+      student_id: data.student_id,
+      academic_year_id: data.academic_year_id,
+      kind: 'fee',
+      title: data.title,
+      amount_paise: Math.round(data.amount * 100), // Convert to paise
+    };
+
+    if (data.fee_category_id) {
+      backendData.fee_category_id = data.fee_category_id;
+    }
+
+    if (data.due_date) {
+      backendData.due_on = data.due_date; // Already in YYYY-MM-DD format
+    }
+
+    console.log('[API] Creating fee charge with data:', backendData);
+
     return this.request<{ data: any }>('/fees/charges', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(backendData),
     });
   }
 
@@ -616,7 +691,8 @@ export class ApiService {
   }
 
   async recordPayment(data: {
-    fee_charge_id: string;
+    student_id: string;
+    academic_year_id: string;
     amount: number;
     payment_date: string;
     payment_method: string;
@@ -625,7 +701,14 @@ export class ApiService {
   }) {
     return this.request<{ data: any }>('/fees/payments', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        student_id: data.student_id,
+        academic_year_id: data.academic_year_id,
+        amount_paise: Math.round(data.amount * 100), // Convert to paise
+        paid_on: data.payment_date,
+        method: data.payment_method,
+        reference: data.reference_no,
+      }),
     });
   }
 
@@ -634,6 +717,17 @@ export class ApiService {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
+  }
+
+  async getFeesStats(params?: Record<string, any>) {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.request<{ data: {
+      total_collected_paise: number;
+      total_pending_paise: number;
+      total_charges_paise: number;
+      charge_count: number;
+      payment_count: number;
+    } }>(`/fees/stats${query}`);
   }
 
   // ========================================
@@ -757,6 +851,18 @@ export class ApiService {
   async publishTimetable(id: string) {
     return this.request<{ data: any }>(`/timetables/${id}/publish`, {
       method: 'POST',
+    });
+  }
+
+  async uploadTimetableImage(id: string, file: File) {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    return this.request<{ data: { image_url: string } }>(`/timetables/${id}/image`, {
+      method: 'POST',
+      body: formData,
+      // Don't set Content-Type header - browser will set it with boundary for multipart
+      headers: {},
     });
   }
 
@@ -1009,6 +1115,10 @@ export class ApiService {
   // TEACHING ASSIGNMENTS ENDPOINTS
   // ========================================
 
+  async getMyTeaching() {
+    return this.request<{ data: any[] }>('/teaching-assignments/me/teaching');
+  }
+
   async getTeachingAssignments(params?: Record<string, any>) {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return this.request<{ data: any[] }>(`/teaching-assignments${query}`);
@@ -1046,6 +1156,8 @@ export class ApiService {
     student_id: string;
     classroom_id: string;
     roll_number?: string;
+    joined_on?: string;
+    status?: string;
   }) {
     return this.request<{ data: any }>('/enrollments', {
       method: 'POST',
@@ -1271,6 +1383,52 @@ export class ApiService {
    */
   async getMyFees(academicYearId: string) {
     return this.request<{ data: any }>(`/me/fees/${academicYearId}`);
+  }
+
+  // ========================================
+  // STUDENT SELF-SERVICE ENDPOINTS
+  // ========================================
+
+  // Get current student's profile
+  async getStudentMe() {
+    return this.request<{ data: any }>('/me/profile');
+  }
+
+  // Get current student's attendance summary
+  async getStudentMeAttendance() {
+    return this.request<{ data: any }>('/me/attendance');
+  }
+
+  // Get current student's published marks
+  async getStudentMeMarks() {
+    return this.request<{ data: any }>('/me/marks');
+  }
+
+  // Get assignments for current student's classroom
+  async getStudentMeAssignments(params?: { subject_id?: string }) {
+    const query = params ? '?' + new URLSearchParams(
+      Object.entries(params).reduce((acc, [key, value]) => {
+        if (value !== undefined) acc[key] = String(value);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString() : '';
+    return this.request<{ data: any[] }>(`/me/assignments${query}`);
+  }
+
+  // Get fee summary for current student
+  async getStudentMeFees(academicYearId?: string) {
+    // If no academic year provided, use current/active one
+    // The backend will need to handle this
+    const yearId = academicYearId || 'current'; // placeholder for now
+    return this.request<{ data: any }>(`/me/fees/${yearId}`);
+  }
+
+  // Change password for current student
+  async changeStudentPassword(data: { current_password: string; new_password: string }) {
+    return this.request<{ message: string }>('/students/me/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 

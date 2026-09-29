@@ -12,7 +12,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
-import { ArrowLeft, Lock, Unlock, Save, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Lock, Unlock, Save } from 'lucide-react';
 
 interface AttendanceEntry {
   student_id: string;
@@ -137,7 +137,7 @@ export function AttendanceSessionDetail() {
       <div style={{ padding: '32px' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
           <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-            <Button variant="secondary" onClick={() => navigate('/attendance')}>
+            <Button variant="secondary" onClick={() => navigate(user?.role === 'teacher' ? '/teacher/attendance' : '/attendance')}>
               <ArrowLeft size={16} />
             </Button>
             <div>
@@ -237,7 +237,7 @@ export function AttendanceSessionDetail() {
                 <p>No students enrolled in this class</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {entries.map((entry) => (
                   <div
                     key={entry.student_id}
@@ -248,100 +248,74 @@ export function AttendanceSessionDetail() {
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
+                      background: entry.status === 'present' ? '#f0fdf4' : entry.status === 'absent' ? '#fef2f2' : 'white',
+                      transition: 'all 0.2s',
                     }}
                   >
-                    <div>
-                      <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>
-                        {entry.student_name}
-                      </div>
-                      {entry.roll_number && (
-                        <div style={{ fontSize: '14px', color: '#64748b' }}>
-                          Roll: {entry.roll_number}
-                        </div>
-                      )}
-                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+                      {/* Checkbox for Present/Absent */}
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: isLocked ? 'not-allowed' : 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={entry.status === 'present'}
+                          onChange={(e) => updateStatus(entry.student_id, e.target.checked ? 'present' : 'absent')}
+                          disabled={isLocked}
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            cursor: isLocked ? 'not-allowed' : 'pointer',
+                            accentColor: '#16a34a',
+                          }}
+                        />
+                      </label>
 
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => updateStatus(entry.student_id, 'present')}
-                        disabled={isLocked}
-                        style={{
-                          padding: '8px 16px',
-                          border: entry.status === 'present' ? '2px solid #16a34a' : '1px solid #e2e8f0',
-                          background: entry.status === 'present' ? '#dcfce7' : 'white',
-                          color: entry.status === 'present' ? '#16a34a' : '#64748b',
+                      {/* Student Info */}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                            {entry.student_name}
+                          </div>
+                          {entry.roll_number && (
+                            <div style={{ fontSize: '14px', color: '#64748b' }}>
+                              Roll: {entry.roll_number}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          padding: '4px 12px',
                           borderRadius: '6px',
-                          fontSize: '14px',
+                          fontSize: '13px',
                           fontWeight: 500,
-                          cursor: isLocked ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        <CheckCircle size={16} />
-                        Present
-                      </button>
-                      <button
-                        onClick={() => updateStatus(entry.student_id, 'absent')}
-                        disabled={isLocked}
-                        style={{
-                          padding: '8px 16px',
-                          border: entry.status === 'absent' ? '2px solid #dc2626' : '1px solid #e2e8f0',
-                          background: entry.status === 'absent' ? '#fee2e2' : 'white',
-                          color: entry.status === 'absent' ? '#dc2626' : '#64748b',
-                          borderRadius: '6px',
-                          fontSize: '14px',
-                          fontWeight: 500,
-                          cursor: isLocked ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        <XCircle size={16} />
-                        Absent
-                      </button>
-                      <button
-                        onClick={() => updateStatus(entry.student_id, 'late')}
-                        disabled={isLocked}
-                        style={{
-                          padding: '8px 16px',
-                          border: entry.status === 'late' ? '2px solid #f59e0b' : '1px solid #e2e8f0',
-                          background: entry.status === 'late' ? '#fef3c7' : 'white',
-                          color: entry.status === 'late' ? '#92400e' : '#64748b',
-                          borderRadius: '6px',
-                          fontSize: '14px',
-                          fontWeight: 500,
-                          cursor: isLocked ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        <Clock size={16} />
-                        Late
-                      </button>
-                      <button
-                        onClick={() => updateStatus(entry.student_id, 'excused')}
-                        disabled={isLocked}
-                        style={{
-                          padding: '8px 16px',
-                          border: entry.status === 'excused' ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                          background: entry.status === 'excused' ? '#e0e7ff' : 'white',
-                          color: entry.status === 'excused' ? '#4338ca' : '#64748b',
-                          borderRadius: '6px',
-                          fontSize: '14px',
-                          fontWeight: 500,
-                          cursor: isLocked ? 'not-allowed' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        <AlertCircle size={16} />
-                        Excused
-                      </button>
+                          background: entry.status === 'present' ? '#dcfce7' : entry.status === 'absent' ? '#fee2e2' : entry.status === 'late' ? '#fef3c7' : '#e0e7ff',
+                          color: entry.status === 'present' ? '#166534' : entry.status === 'absent' ? '#991b1b' : entry.status === 'late' ? '#92400e' : '#4338ca',
+                        }}>
+                          {entry.status === 'present' ? '✓ Present' : entry.status === 'absent' ? '✗ Absent' : entry.status === 'late' ? '⏰ Late' : '⚠ Excused'}
+                        </span>
+
+                        {/* Additional Options */}
+                        <select
+                          value={entry.status}
+                          onChange={(e) => updateStatus(entry.student_id, e.target.value as any)}
+                          disabled={isLocked}
+                          style={{
+                            padding: '4px 8px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            cursor: isLocked ? 'not-allowed' : 'pointer',
+                            background: 'white',
+                          }}
+                        >
+                          <option value="present">Present</option>
+                          <option value="absent">Absent</option>
+                          <option value="late">Late</option>
+                          <option value="excused">Excused</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 ))}

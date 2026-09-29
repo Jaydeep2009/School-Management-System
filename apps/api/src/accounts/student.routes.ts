@@ -18,7 +18,7 @@ import * as studentService from './student.service';
 import * as bulkProvisionService from './bulk-provision.service';
 import * as studentSchemas from './accounts.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
-import { requireRole } from '../authz/authz.service';
+import { requirePrincipal } from '../auth/role.middleware';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
   CreateStudentRequest,
@@ -31,28 +31,28 @@ const students = new Hono<AuthContext>();
 
 /**
  * GET /students
- * List students
- * Authorization: Principal can view all
- * Optional filters: status, search
+ * List students with enrollment info
+ * Authorization: Principal only
+ * Optional filters: status, search, academic_year_id
  */
-students.get('/', requireAuth, async (c) => {
+students.get('/', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
-    
+    const academicYearId = c.req.query('academic_year_id');
     const filters = {
       status: c.req.query('status') as 'active' | 'inactive' | undefined,
       search: c.req.query('search'),
     };
     
-    const studentList = await studentService.list(c.env.DB, tenant.schoolId, filters);
+    const studentList = await studentService.listWithEnrollment(
+      c.env.DB, 
+      tenant.schoolId, 
+      academicYearId,
+      filters
+    );
     return c.json({ data: studentList }, 200);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Insufficient role')) {
-      return c.json({ error: 'Forbidden' }, 403);
-    }
     const message = error instanceof Error ? error.message : 'Failed to list students';
     return c.json({ error: message }, 500);
   }
@@ -71,7 +71,7 @@ students.get('/:id', requireAuth, async (c) => {
     // Fetch student with user info (tenant-scoped)
     const result = await studentService.getByIdWithUser(c.env.DB, id, tenant.schoolId);
     
-    // Authorization check: Principal can view all, student can view own
+    // Authorization check: Principal can view all, student can view own, teacher can view their students
     if (tenant.role === 'principal') {
       // Principal can view all
     } else if (tenant.role === 'student') {
@@ -79,9 +79,28 @@ students.get('/:id', requireAuth, async (c) => {
       if (result.user.id !== tenant.userId) {
         return c.json({ error: 'Forbidden' }, 403);
       }
+    } else if (tenant.role === 'teacher') {
+      // Teacher can view students in their classrooms (via class teacher or teaching assignments)
+      // Check if student is in any of teacher's classrooms
+      const enrollment = await c.env.DB
+        .prepare(`
+          SELECT e.id 
+          FROM enrollments e
+          INNER JOIN classrooms c ON e.classroom_id = c.id
+          LEFT JOIN teaching_assignments ta ON ta.classroom_id = c.id AND ta.teacher_id = ?
+          WHERE e.student_id = ? 
+            AND e.school_id = ?
+            AND (c.class_teacher_id = ? OR ta.id IS NOT NULL)
+          LIMIT 1
+        `)
+        .bind(tenant.userId, id, tenant.schoolId, tenant.userId)
+        .first();
+      
+      if (!enrollment) {
+        return c.json({ error: 'Forbidden' }, 403);
+      }
     } else {
-      // Teachers and others cannot view student profiles directly
-      // (Teachers can view through their classroom/teaching assignments)
+      // Other roles cannot view student profiles
       return c.json({ error: 'Forbidden' }, 403);
     }
     
@@ -108,14 +127,13 @@ students.get('/:id', requireAuth, async (c) => {
 students.post(
   '/',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', studentSchemas.createStudentSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as CreateStudentRequest;
       const result = await studentService.create(c.env.DB, tenant.schoolId, body);
@@ -162,14 +180,13 @@ students.post(
 students.post(
   '/bulk-provision',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', studentSchemas.bulkProvisionStudentsSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as { students: BulkStudentProvisionRequest[] };
       const result = await bulkProvisionService.bulkProvisionStudents(
@@ -214,14 +231,12 @@ students.post(
 students.patch(
   '/:id',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', studentSchemas.updateStudentSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const id = c.req.param('id')!; // Route guarantees id exists
       
@@ -258,13 +273,10 @@ students.patch(
  * - Revokes all sessions
  * - Increments token_version
  */
-students.post('/:id/disable', requireAuth, async (c) => {
+students.post('/:id/disable', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     
@@ -298,13 +310,10 @@ students.post('/:id/disable', requireAuth, async (c) => {
  * - Sets user status to active
  * - Sets must_change_password = true
  */
-students.post('/:id/reactivate', requireAuth, async (c) => {
+students.post('/:id/reactivate', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     
@@ -341,13 +350,10 @@ students.post('/:id/reactivate', requireAuth, async (c) => {
  * - Increments token_version
  * - Sets must_change_password = true
  */
-students.post('/:id/reset-password', requireAuth, async (c) => {
+students.post('/:id/reset-password', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     

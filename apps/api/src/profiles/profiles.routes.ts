@@ -237,30 +237,46 @@ profiles.get('/birthdays/upcoming', requireAuth, async (c) => {
       profilesService.getStudentBirthdays(c.env.DB, filters, tenant),
     ]);
 
-    // Combine and format
+    // Helper to calculate days until birthday
+    const calculateDaysUntil = (dobMd: string): number => {
+      const [month, day] = dobMd.split('-').map(Number);
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      
+      let birthdayThisYear = new Date(currentYear, month - 1, day);
+      
+      // If birthday has passed this year, calculate for next year
+      if (birthdayThisYear < today) {
+        birthdayThisYear = new Date(currentYear + 1, month - 1, day);
+      }
+      
+      const diffTime = birthdayThisYear.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return diffDays;
+    };
+
+    // Combine and format with proper types for frontend
     const combined = [
       ...teacherBirthdays.map(t => ({
-        id: t.user_id,
-        name: `${t.first_name} ${t.last_name}`,
-        type: 'teacher' as const,
-        day: parseInt(t.dob_md.split('-')[1]),
-        month: parseInt(t.dob_md.split('-')[0]),
+        user_id: t.user_id,
+        role: 'teacher' as const,
+        full_name: `${t.first_name} ${t.last_name}`,
+        date_of_birth: t.full_dob || '',
+        days_until: calculateDaysUntil(t.dob_md),
       })),
       ...studentBirthdays.map(s => ({
-        id: s.user_id,
-        name: `${s.first_name} ${s.last_name}`,
-        type: 'student' as const,
+        user_id: s.user_id,
+        role: 'student' as const,
+        full_name: `${s.first_name} ${s.last_name}`,
+        date_of_birth: s.full_dob || '',
         classroom: `${s.grade_name} ${s.division_name}`,
-        day: parseInt(s.dob_md.split('-')[1]),
-        month: parseInt(s.dob_md.split('-')[0]),
+        days_until: calculateDaysUntil(s.dob_md),
       })),
     ];
 
-    // Sort by month, then day
-    combined.sort((a, b) => {
-      if (a.month !== b.month) return a.month - b.month;
-      return a.day - b.day;
-    });
+    // Sort by days until birthday
+    combined.sort((a, b) => a.days_until - b.days_until);
 
     return c.json({ data: combined }, 200);
   } catch (error) {

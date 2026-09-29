@@ -58,7 +58,12 @@ export function StudentDetail() {
       setIsLoading(true);
       setError(null);
       const response = await apiService.getStudent(id);
-      setStudent(response.data);
+      // Flatten the response structure from { data: { profile, user } } to { ...profile, user }
+      const flattened = {
+        ...response.data.profile,
+        user: response.data.user,
+      };
+      setStudent(flattened);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load student');
     } finally {

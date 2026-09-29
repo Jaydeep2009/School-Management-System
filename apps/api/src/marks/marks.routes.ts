@@ -93,6 +93,7 @@ marks.get('/assessments', requireAuth, async (c) => {
       return c.json({ error: error.message }, error.statusCode as any);
     }
     const message = error instanceof Error ? error.message : 'Failed to list assessments';
+    console.error('[GET /assessments] Error:', message, error);
     return c.json({ error: message }, 500);
   }
 });

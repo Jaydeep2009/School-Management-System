@@ -45,7 +45,7 @@ export function AssessmentDetail() {
       setError(null);
       const [assessmentRes, marksRes] = await Promise.all([
         apiService.getAssessment(id),
-        apiService.getMarksEntries({ assessment_id: id }),
+        apiService.getAssessmentMarks(id),
       ]);
       
       setAssessment(assessmentRes.data);
@@ -85,7 +85,7 @@ export function AssessmentDetail() {
         marks_obtained: m.status === 'graded' ? m.marks_obtained : null,
       }));
 
-      await apiService.updateAssessment(id, { entries } as any);
+      await apiService.updateAssessmentMarks(id, entries);
       await loadAssessmentData();
       alert('Marks saved successfully');
     } catch (err) {
@@ -142,7 +142,7 @@ export function AssessmentDetail() {
 
   if (isLoading) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout} role={user?.role}>
         <div style={{ padding: '32px' }}>
           <Skeleton height="300px" />
         </div>
@@ -152,7 +152,7 @@ export function AssessmentDetail() {
 
   if (error || !assessment) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout} role={user?.role}>
         <div style={{ padding: '32px' }}>
           <ErrorState message={error || 'Assessment not found'} onRetry={loadAssessmentData} />
         </div>
@@ -167,11 +167,11 @@ export function AssessmentDetail() {
   const exemptCount = marks.filter(m => m.status === 'exempt').length;
 
   return (
-    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout} role={user?.role}>
       <div style={{ padding: '32px' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
           <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-            <Button variant="secondary" onClick={() => navigate('/marks')}>
+            <Button variant="secondary" onClick={() => navigate(user?.role === 'teacher' ? '/teacher/marks' : '/marks')}>
               <ArrowLeft size={16} />
             </Button>
             <div>

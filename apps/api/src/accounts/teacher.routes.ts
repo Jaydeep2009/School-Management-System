@@ -16,7 +16,7 @@ import { zValidator } from '@hono/zod-validator';
 import * as teacherService from './teacher.service';
 import * as teacherSchemas from './accounts.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
-import { requireRole } from '../authz/authz.service';
+import { requirePrincipal } from '../auth/role.middleware';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
   CreateTeacherRequest,
@@ -28,15 +28,12 @@ const teachers = new Hono<AuthContext>();
 /**
  * GET /teachers
  * List teachers
- * Authorization: Principal can view all
+ * Authorization: Principal only
  * Optional filters: status, search
  */
-teachers.get('/', requireAuth, async (c) => {
+teachers.get('/', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const filters = {
       status: c.req.query('status') as 'active' | 'inactive' | undefined,
@@ -46,9 +43,6 @@ teachers.get('/', requireAuth, async (c) => {
     const teacherList = await teacherService.list(c.env.DB, tenant.schoolId, filters);
     return c.json({ data: teacherList }, 200);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Insufficient role')) {
-      return c.json({ error: 'Forbidden' }, 403);
-    }
     const message = error instanceof Error ? error.message : 'Failed to list teachers';
     return c.json({ error: message }, 500);
   }
@@ -103,14 +97,12 @@ teachers.get('/:id', requireAuth, async (c) => {
 teachers.post(
   '/',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', teacherSchemas.createTeacherSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as CreateTeacherRequest;
       const result = await teacherService.create(c.env.DB, tenant.schoolId, body);
@@ -127,9 +119,6 @@ teachers.post(
       // Client MUST save and display this to the user
       return c.json({ data: result }, 201);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Insufficient role')) {
-        return c.json({ error: 'Forbidden' }, 403);
-      }
       if (error instanceof teacherService.TeacherError) {
         return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
       }
@@ -147,14 +136,13 @@ teachers.post(
 teachers.patch(
   '/:id',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', teacherSchemas.updateTeacherSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
       const requestId = getRequestIdFromContext(c);
       
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const id = c.req.param('id')!; // Route guarantees id exists
       
@@ -191,13 +179,10 @@ teachers.patch(
  * - Revokes all sessions
  * - Increments token_version
  */
-teachers.post('/:id/disable', requireAuth, async (c) => {
+teachers.post('/:id/disable', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     
@@ -231,13 +216,10 @@ teachers.post('/:id/disable', requireAuth, async (c) => {
  * - Sets user status to active
  * - Sets must_change_password = true
  */
-teachers.post('/:id/reactivate', requireAuth, async (c) => {
+teachers.post('/:id/reactivate', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     
@@ -274,13 +256,10 @@ teachers.post('/:id/reactivate', requireAuth, async (c) => {
  * - Increments token_version
  * - Sets must_change_password = true
  */
-teachers.post('/:id/reset-password', requireAuth, async (c) => {
+teachers.post('/:id/reset-password', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const requestId = getRequestIdFromContext(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     
@@ -336,8 +315,61 @@ teachers.get('/:id/assignments', requireAuth, async (c) => {
       return c.json({ error: 'Forbidden' }, 403);
     }
     
-    // TODO: Implement teaching assignments query
-    return c.json({ data: [] }, 200);
+    // Get teaching assignments for the teacher
+    const assignments = await c.env.DB
+      .prepare(`
+        SELECT 
+          ta.id as assignment_id,
+          ta.subject_id,
+          s.subject_name,
+          s.subject_code,
+          ta.classroom_id,
+          c.classroom_code,
+          c.grade_name,
+          c.division_name,
+          (c.grade_name || ' ' || c.division_name) as classroom_name,
+          ta.academic_year_id,
+          ay.label as academic_year
+        FROM teaching_assignments ta
+        INNER JOIN subjects s ON ta.subject_id = s.id
+        INNER JOIN classrooms c ON ta.classroom_id = c.id
+        INNER JOIN academic_years ay ON ta.academic_year_id = ay.id
+        WHERE ta.teacher_id = ?
+          AND ta.school_id = ?
+        ORDER BY ay.start_date DESC, c.grade_level, c.division_name, s.subject_name
+      `)
+      .bind(id, tenant.schoolId)
+      .all();
+
+    // Get classrooms where teacher is class teacher
+    const classTeacherOf = await c.env.DB
+      .prepare(`
+        SELECT 
+          c.id as classroom_id,
+          c.classroom_code,
+          c.grade_name,
+          c.division_name,
+          (c.grade_name || ' ' || c.division_name) as classroom_name,
+          c.academic_year_id,
+          ay.label as academic_year,
+          COUNT(e.id) as student_count
+        FROM classrooms c
+        INNER JOIN academic_years ay ON c.academic_year_id = ay.id
+        LEFT JOIN enrollments e ON c.id = e.classroom_id
+        WHERE c.class_teacher_id = ?
+          AND c.school_id = ?
+        GROUP BY c.id, c.classroom_code, c.grade_name, c.division_name, c.academic_year_id, ay.label
+        ORDER BY ay.start_date DESC, c.grade_level, c.division_name
+      `)
+      .bind(id, tenant.schoolId)
+      .all();
+
+    return c.json({ 
+      data: {
+        teaching_assignments: assignments.results || [],
+        class_teacher_of: classTeacherOf.results || [],
+      }
+    }, 200);
   } catch (error) {
     if (error instanceof teacherService.TeacherError) {
       return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);

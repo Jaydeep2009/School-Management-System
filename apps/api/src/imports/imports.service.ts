@@ -152,6 +152,9 @@ export async function commitImport(
     if (importJob.kind === 'timetable') {
       result = await commitTimetableImport(db, payload.rows, tenant);
     } else if (importJob.kind === 'students') {
+      console.log('[commitImport] Processing students import');
+      console.log('[commitImport] Payload:', payload);
+      console.log('[commitImport] Options from payload:', payload.options);
       result = await commitStudentsImport(db, payload.rows, tenant, payload.options);
     } else if (importJob.kind === 'attendance') {
       result = await commitAttendanceImport(db, payload.rows, tenant);
@@ -281,7 +284,7 @@ async function validateTimetableImport(
 
       // Validate classroom
       const classroom = await db
-        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ? AND academic_year_id = ?`)
+        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ? AND academic_year_id = ?`)
         .bind(tenant.schoolId, row.classroom_code, academicYear.id)
         .first<{ id: string }>();
 
@@ -453,7 +456,7 @@ async function commitTimetableImport(
       .first<{ id: string }>();
 
     const classroom = await db
-      .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ?`)
+      .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ?`)
       .bind(tenant.schoolId, row.classroom_code)
       .first<{ id: string }>();
 
@@ -759,33 +762,40 @@ async function commitStudentsImport(
   let rowsCreated = 0;
   let rowsSkipped = 0;
 
-  // Extract options
+  // Extract options - support both ID-based and code-based enrollment
+  const academicYearId = options?.academic_year_id as string | undefined;
+  const classroomId = options?.classroom_id as string | undefined;
   const academicYearLabel = options?.academic_year as string | undefined;
   const classroomCode = options?.classroom_code as string | undefined;
 
-  // Get academic year and classroom if enrollment is needed
-  let academicYearId: string | undefined;
-  let classroomId: string | undefined;
+  console.log('[commitStudentsImport] Options:', JSON.stringify(options));
+  console.log('[commitStudentsImport] academicYearId:', academicYearId);
+  console.log('[commitStudentsImport] classroomId:', classroomId);
+  console.log('[commitStudentsImport] Processing', rows.length, 'students');
 
-  if (academicYearLabel) {
+  // Resolve IDs if using label/code approach (fallback for compatibility)
+  let resolvedAcademicYearId = academicYearId;
+  let resolvedClassroomId = classroomId;
+
+  if (!resolvedAcademicYearId && academicYearLabel) {
     const academicYear = await db
       .prepare(`SELECT id FROM academic_years WHERE school_id = ? AND label = ?`)
       .bind(tenant.schoolId, academicYearLabel)
       .first<{ id: string }>();
     
     if (academicYear) {
-      academicYearId = academicYear.id;
+      resolvedAcademicYearId = academicYear.id;
     }
   }
 
-  if (classroomCode && academicYearId) {
+  if (!resolvedClassroomId && classroomCode && resolvedAcademicYearId) {
     const classroom = await db
       .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ? AND academic_year_id = ?`)
-      .bind(tenant.schoolId, classroomCode, academicYearId)
+      .bind(tenant.schoolId, classroomCode, resolvedAcademicYearId)
       .first<{ id: string }>();
     
     if (classroom) {
-      classroomId = classroom.id;
+      resolvedClassroomId = classroom.id;
     }
   }
 
@@ -813,21 +823,33 @@ async function commitStudentsImport(
       rowsCreated++;
 
       // Create enrollment if classroom is specified
-      if (classroomId && academicYearId) {
+      if (resolvedClassroomId && resolvedAcademicYearId) {
+        console.log('[commitStudentsImport] Creating enrollment for student:', result.user_id);
+        console.log('[commitStudentsImport] Classroom:', resolvedClassroomId, 'Academic Year:', resolvedAcademicYearId);
+        
         await db
           .prepare(`
-            INSERT INTO enrollments (id, school_id, student_id, academic_year_id, classroom_id, enrolled_on)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO enrollments (id, school_id, student_id, academic_year_id, classroom_id, joined_on, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `)
           .bind(
             crypto.randomUUID(),
             tenant.schoolId,
             result.user_id,
-            academicYearId,
-            classroomId,
-            new Date().toISOString().split('T')[0]
+            resolvedAcademicYearId,
+            resolvedClassroomId,
+            new Date().toISOString().split('T')[0],
+            'active',
+            Date.now(),
+            Date.now()
           )
           .run();
+        
+        console.log('[commitStudentsImport] Enrollment created successfully');
+      } else {
+        console.log('[commitStudentsImport] Skipping enrollment - missing classroom or academic year');
+        console.log('[commitStudentsImport] resolvedClassroomId:', resolvedClassroomId);
+        console.log('[commitStudentsImport] resolvedAcademicYearId:', resolvedAcademicYearId);
       }
 
     } catch (error) {
@@ -837,8 +859,20 @@ async function commitStudentsImport(
     }
   }
 
-  const enrollmentMsg = classroomId 
-    ? ` and enrolled in classroom ${classroomCode}`
+  // Get classroom code for message
+  let classroomDisplayName = 'classroom';
+  if (resolvedClassroomId) {
+    const classroom = await db
+      .prepare(`SELECT classroom_code FROM classrooms WHERE id = ?`)
+      .bind(resolvedClassroomId)
+      .first<{ classroom_code: string }>();
+    if (classroom) {
+      classroomDisplayName = classroom.classroom_code;
+    }
+  }
+
+  const enrollmentMsg = resolvedClassroomId 
+    ? ` and enrolled in ${classroomDisplayName}`
     : '';
 
   return {
@@ -891,7 +925,7 @@ async function validateAttendanceImport(
 
       // Validate classroom
       const classroom = await db
-        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ? AND academic_year_id = ?`)
+        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ? AND academic_year_id = ?`)
         .bind(tenant.schoolId, row.classroom_code, academicYear.id)
         .first<{ id: string }>();
 
@@ -1115,7 +1149,7 @@ async function commitAttendanceImport(
         .first<{ id: string }>();
 
       const classroom = await db
-        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ?`)
+        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ?`)
         .bind(tenant.schoolId, row.classroom_code)
         .first<{ id: string }>();
 
@@ -1318,7 +1352,7 @@ async function validateMarksImport(
 
       // Validate classroom
       const classroom = await db
-        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ? AND academic_year_id = ?`)
+        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ? AND academic_year_id = ?`)
         .bind(tenant.schoolId, row.classroom_code, academicYear.id)
         .first<{ id: string }>();
 
@@ -1527,7 +1561,7 @@ async function commitMarksImport(
         .first<{ id: string }>();
 
       const classroom = await db
-        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ?`)
+        .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ?`)
         .bind(tenant.schoolId, row.classroom_code)
         .first<{ id: string }>();
 

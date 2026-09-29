@@ -45,34 +45,51 @@ export async function findAll(
     status?: EnrollmentStatus;
   }
 ): Promise<Enrollment[]> {
-  let query = `SELECT id, school_id, academic_year_id, classroom_id, student_id, roll_number,
-                      joined_on, left_on, status, outcome, from_enrollment_id, created_at, updated_at
-               FROM enrollments
-               WHERE school_id = ?`;
+  let query = `SELECT 
+                 e.id, e.school_id, e.academic_year_id, e.classroom_id, e.student_id, e.roll_number,
+                 e.joined_on, e.left_on, e.status, e.outcome, e.from_enrollment_id, e.created_at, e.updated_at,
+                 sp.student_code,
+                 sp.admission_number,
+                 (sp.first_name || ' ' || COALESCE(sp.middle_name || ' ', '') || sp.last_name) as student_name,
+                 sp.first_name,
+                 sp.middle_name,
+                 sp.last_name,
+                 sp.gender,
+                 sp.date_of_birth,
+                 sp.phone,
+                 sp.email,
+                 sp.address,
+                 sp.parent_name,
+                 sp.parent_phone,
+                 sp.parent_email,
+                 sp.status as student_status
+               FROM enrollments e
+               LEFT JOIN student_profiles sp ON e.student_id = sp.user_id
+               WHERE e.school_id = ?`;
   
   const bindings: unknown[] = [schoolId];
 
   if (filters?.academic_year_id) {
-    query += ' AND academic_year_id = ?';
+    query += ' AND e.academic_year_id = ?';
     bindings.push(filters.academic_year_id);
   }
 
   if (filters?.classroom_id) {
-    query += ' AND classroom_id = ?';
+    query += ' AND e.classroom_id = ?';
     bindings.push(filters.classroom_id);
   }
 
   if (filters?.student_id) {
-    query += ' AND student_id = ?';
+    query += ' AND e.student_id = ?';
     bindings.push(filters.student_id);
   }
 
   if (filters?.status) {
-    query += ' AND status = ?';
+    query += ' AND e.status = ?';
     bindings.push(filters.status);
   }
 
-  query += ' ORDER BY joined_on DESC';
+  query += ' ORDER BY e.joined_on DESC';
 
   const result = await db
     .prepare(query)
@@ -98,7 +115,7 @@ export async function findActiveByStudent(
        FROM enrollments
        WHERE student_id = ?
          AND school_id = ?
-         AND status = 'active'
+         AND status IN ('active', 'planned')
        ORDER BY joined_on DESC`
     )
     .bind(studentId, schoolId)

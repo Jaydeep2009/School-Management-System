@@ -24,6 +24,9 @@ interface StudentFormData {
   address?: string;
   parent_name?: string;
   parent_phone?: string;
+  admission_batch?: string;
+  classroom_id?: string;
+  academic_year_id?: string;
 }
 
 export function StudentForm() {
@@ -44,17 +47,42 @@ export function StudentForm() {
     address: '',
     parent_name: '',
     parent_phone: '',
+    admission_batch: '',
+    classroom_id: '',
+    academic_year_id: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
 
   useEffect(() => {
+    loadDropdownData();
     if (isEditMode) {
       loadStudent();
     }
   }, [id]);
+
+  const loadDropdownData = async () => {
+    try {
+      const [classroomsRes, yearsRes] = await Promise.all([
+        apiService.getClassrooms(),
+        apiService.getAcademicYears()
+      ]);
+      setClassrooms(classroomsRes.data || []);
+      setAcademicYears(yearsRes.data || []);
+      
+      // Set default academic year to active one
+      const activeYear = yearsRes.data?.find((y: any) => y.status === 'active');
+      if (activeYear && !isEditMode) {
+        setFormData(prev => ({ ...prev, academic_year_id: activeYear.id }));
+      }
+    } catch (err) {
+      console.error('Failed to load dropdown data:', err);
+    }
+  };
 
   const loadStudent = async () => {
     if (!id) return;
@@ -110,6 +138,22 @@ export function StudentForm() {
         // Create new student
         const response = await apiService.createStudent(formData);
         const credentials = response.data;
+        
+        // If classroom is selected, create enrollment
+        if (formData.classroom_id && formData.academic_year_id) {
+          try {
+            await apiService.createEnrollment({
+              academic_year_id: formData.academic_year_id,
+              classroom_id: formData.classroom_id,
+              student_id: credentials.profile_id,
+              joined_on: new Date().toISOString().split('T')[0], // Today's date
+              status: 'active'
+            });
+          } catch (enrollErr) {
+            console.error('Failed to create enrollment:', enrollErr);
+            // Continue anyway - student was created successfully
+          }
+        }
         
         // Show credentials dialog
         alert(
@@ -362,6 +406,32 @@ export function StudentForm() {
                 </div>
               </div>
 
+              {/* Admission Batch */}
+              <div>
+                <label htmlFor="admission_batch" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                  Admission Batch
+                </label>
+                <input
+                  id="admission_batch"
+                  type="text"
+                  value={formData.admission_batch}
+                  onChange={(e) => updateField('admission_batch', e.target.value)}
+                  placeholder="e.g., 2024 Batch, Class of 2025"
+                  disabled={isSubmitting}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    outline: 'none',
+                  }}
+                />
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                  Group students by admission year or batch for easier management
+                </div>
+              </div>
+
               {/* Address */}
               <div>
                 <label htmlFor="address" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
@@ -434,6 +504,79 @@ export function StudentForm() {
                   </div>
                 </div>
               </div>
+
+              {/* Classroom Enrollment (Only for new students) */}
+              {!isEditMode && (
+                <div style={{ paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
+                    Classroom Enrollment (Optional)
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label htmlFor="academic_year_id" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                        Academic Year
+                      </label>
+                      <select
+                        id="academic_year_id"
+                        value={formData.academic_year_id || ''}
+                        onChange={(e) => updateField('academic_year_id', e.target.value)}
+                        disabled={isSubmitting}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          outline: 'none',
+                          background: 'white',
+                        }}
+                      >
+                        <option value="">Select academic year</option>
+                        {academicYears.map((year) => (
+                          <option key={year.id} value={year.id}>
+                            {year.label || year.name} {year.status === 'active' ? '(Active)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="classroom_id" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                        Classroom
+                      </label>
+                      <select
+                        id="classroom_id"
+                        value={formData.classroom_id || ''}
+                        onChange={(e) => updateField('classroom_id', e.target.value)}
+                        disabled={isSubmitting || !formData.academic_year_id}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          outline: 'none',
+                          background: 'white',
+                        }}
+                      >
+                        <option value="">Select classroom</option>
+                        {classrooms
+                          .filter(c => c.academic_year_id === formData.academic_year_id)
+                          .map((classroom) => (
+                            <option key={classroom.id} value={classroom.id}>
+                              {classroom.classroom_code} - {classroom.grade_name} {classroom.division_name}
+                            </option>
+                          ))}
+                      </select>
+                      {!formData.academic_year_id && (
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                          Select an academic year first
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Form Actions */}
               <div style={{ display: 'flex', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>

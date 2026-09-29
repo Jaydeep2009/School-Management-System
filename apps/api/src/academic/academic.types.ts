@@ -113,6 +113,10 @@ export interface TeachingAssignment {
   subject_id: string;
   created_at: string;
   updated_at: string;
+  // Optional joined fields from related tables
+  teacher_name?: string;
+  classroom_name?: string;
+  subject_name?: string;
 }
 
 export interface CreateTeachingAssignmentRequest {
@@ -145,6 +149,8 @@ export interface Enrollment {
   from_enrollment_id: string | null;
   created_at: string;
   updated_at: string;
+  // Optional JOIN fields
+  student_name?: string;
 }
 
 export interface CreateEnrollmentRequest {

@@ -21,6 +21,7 @@ interface AssessmentFormData {
 }
 
 export function AssessmentForm() {
+  console.log('=== AssessmentForm Component Loaded ===');
   const { id } = useParams<{ id: string }>();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ export function AssessmentForm() {
     subject_id: '',
     name: '',
     max_marks: 100,
-    weightage: 10,
+    weightage: 0,
     held_on: '',
   });
 
@@ -62,8 +63,26 @@ export function AssessmentForm() {
       ]);
       
       setAcademicYears(yearsRes.data);
-      setClassrooms(classroomsRes.data);
-      setSubjects(subjectsRes.data);
+
+      // For teachers, filter to only assigned classrooms/subjects
+      if (user?.role === 'teacher') {
+        const teachingRes = await apiService.getMyTeaching();
+        const assignments = teachingRes.data;
+        
+        // Get unique classroom IDs and subject IDs from assignments
+        const assignedClassroomIds = new Set(assignments.map((a: any) => a.classroom_id));
+        const assignedSubjectIds = new Set(assignments.map((a: any) => a.subject_id));
+        
+        // Filter classrooms and subjects
+        const filteredClassrooms = classroomsRes.data.filter((c: any) => assignedClassroomIds.has(c.id));
+        const filteredSubjects = subjectsRes.data.filter((s: any) => assignedSubjectIds.has(s.id));
+        
+        setClassrooms(filteredClassrooms);
+        setSubjects(filteredSubjects);
+      } else {
+        setClassrooms(classroomsRes.data);
+        setSubjects(subjectsRes.data);
+      }
 
       const currentYear = yearsRes.data.find((y: any) => y.is_current);
       if (currentYear) {
@@ -98,6 +117,8 @@ export function AssessmentForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log('=== FORM SUBMIT TRIGGERED ===');
+    console.log('Form data:', formData);
     setError(null);
 
     if (!formData.classroom_id) {
@@ -116,31 +137,28 @@ export function AssessmentForm() {
       setError('Max marks must be greater than 0');
       return;
     }
-    if (formData.weightage < 0) {
-      setError('Weightage cannot be negative');
-      return;
-    }
 
     setIsSubmitting(true);
 
     try {
       if (isEditMode && id) {
+        console.log('Updating assessment:', id, formData);
         await apiService.updateAssessment(id, formData);
-        navigate(`/marks/${id}`);
+        const detailPath = user?.role === 'teacher' ? `/teacher/marks/${id}` : `/marks/${id}`;
+        navigate(detailPath);
       } else {
-        // For create, we need to add academic_year_id and assessment_type
-        const classroom = classrooms.find(c => c.id === formData.classroom_id);
-        const createData = {
-          ...formData,
-          academic_year_id: classroom?.academic_year_id || selectedAcademicYear,
-          assessment_type: 'test', // Default type
-          scheduled_date: formData.held_on || undefined,
-        };
-        const response = await apiService.createAssessment(createData);
-        navigate(`/marks/${response.data.id}`);
+        // Create new assessment
+        console.log('Creating assessment with data:', formData);
+        const response = await apiService.createAssessment(formData);
+        console.log('Assessment created successfully:', response.data);
+        const detailPath = user?.role === 'teacher' ? `/teacher/marks/${response.data.id}` : `/marks/${response.data.id}`;
+        navigate(detailPath);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save assessment');
+      console.error('Error saving assessment:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save assessment';
+      setError(errorMessage);
+      alert(errorMessage); // Show alert to make error visible
     } finally {
       setIsSubmitting(false);
     }
@@ -154,7 +172,7 @@ export function AssessmentForm() {
 
   if (isLoading) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout} role={user?.role}>
         <div style={{ padding: '32px', textAlign: 'center' }}>Loading...</div>
       </Layout>
     );
@@ -165,10 +183,10 @@ export function AssessmentForm() {
   );
 
   return (
-    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout} role={user?.role}>
       <div style={{ padding: '32px', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Button variant="secondary" onClick={() => navigate('/marks')}>
+          <Button variant="secondary" onClick={() => navigate(user?.role === 'teacher' ? '/teacher/marks' : '/marks')}>
             <ArrowLeft size={16} />
           </Button>
           <div>
@@ -245,7 +263,9 @@ export function AssessmentForm() {
                 >
                   <option value="">Select Classroom</option>
                   {filteredClassrooms.map(classroom => (
-                    <option key={classroom.id} value={classroom.id}>{classroom.classroom_name}</option>
+                    <option key={classroom.id} value={classroom.id}>
+                      {classroom.grade_name}-{classroom.division_name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -272,7 +292,7 @@ export function AssessmentForm() {
                 >
                   <option value="">Select Subject</option>
                   {subjects.map(subject => (
-                    <option key={subject.id} value={subject.id}>{subject.subject_name}</option>
+                    <option key={subject.id} value={subject.id}>{subject.name}</option>
                   ))}
                 </select>
               </div>
@@ -301,53 +321,28 @@ export function AssessmentForm() {
                 />
               </div>
 
-              {/* Max Marks and Weightage */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label htmlFor="max_marks" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
-                    Max Marks <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <input
-                    id="max_marks"
-                    type="number"
-                    min="1"
-                    value={formData.max_marks}
-                    onChange={(e) => updateField('max_marks', parseInt(e.target.value) || 0)}
-                    disabled={isSubmitting}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '6px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="weightage" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
-                    Weightage (%)
-                  </label>
-                  <input
-                    id="weightage"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={formData.weightage}
-                    onChange={(e) => updateField('weightage', parseFloat(e.target.value) || 0)}
-                    disabled={isSubmitting}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '6px',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
+              {/* Max Marks */}
+              <div>
+                <label htmlFor="max_marks" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                  Max Marks <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <input
+                  id="max_marks"
+                  type="number"
+                  min="1"
+                  value={formData.max_marks}
+                  onChange={(e) => updateField('max_marks', parseInt(e.target.value) || 0)}
+                  disabled={isSubmitting}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    outline: 'none',
+                  }}
+                />
               </div>
 
               {/* Held On Date */}

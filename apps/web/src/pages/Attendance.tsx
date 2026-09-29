@@ -13,27 +13,29 @@ import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
 import type { AttendanceSession } from '../types/entities';
 import { ClipboardCheck, Plus, Calendar } from 'lucide-react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 export function Attendance() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { selectedYear } = useAcademicYear();
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSessions();
-  }, []);
+  }, [selectedYear?.id]);
 
   const loadSessions = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      // Get current academic year from user or default
-      const academicYearId = '';
-      if (academicYearId) {
-        const response = await apiService.getAttendanceSessions({ academic_year_id: academicYearId });
+      if (selectedYear?.id) {
+        const response = await apiService.getAttendanceSessions({ academic_year_id: selectedYear.id });
         setSessions(response.data || response);
+      } else {
+        setSessions([]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load attendance sessions');

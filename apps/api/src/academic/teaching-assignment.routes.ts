@@ -12,7 +12,7 @@ import { zValidator } from '@hono/zod-validator';
 import * as teachingAssignmentService from './teaching-assignment.service';
 import * as teachingAssignmentSchemas from './academic.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
-import { requireRole } from '../authz/authz.service';
+import { requireTeacher, requirePrincipal } from '../auth/role.middleware';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
   CreateTeachingAssignmentRequest,
@@ -20,6 +20,42 @@ import type {
 } from './academic.types';
 
 const teachingAssignments = new Hono<AuthContext>();
+
+/**
+ * GET /me/teaching
+ * Get current teacher's teaching assignments with class_teacher flag
+ * Authorization: Teacher role required
+ * Returns only assignments for the authenticated teacher
+ */
+teachingAssignments.get('/me/teaching', requireAuth, requireTeacher(), async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    
+    // Get teaching assignments for current teacher
+    const assignments = await teachingAssignmentService.list(c.env.DB, tenant.schoolId, {
+      teacher_id: tenant.userId
+    });
+    
+    // Check which classroom the teacher is class teacher of
+    const classrooms = await c.env.DB
+      .prepare('SELECT id, classroom_code FROM classrooms WHERE school_id = ? AND class_teacher_id = ?')
+      .bind(tenant.schoolId, tenant.userId)
+      .all();
+    
+    const classTeacherClassroomIds = new Set(classrooms.results?.map((c: any) => c.id) || []);
+    
+    // Add is_class_teacher flag to each assignment
+    const enrichedAssignments = assignments.map(a => ({
+      ...a,
+      is_class_teacher: classTeacherClassroomIds.has(a.classroom_id)
+    }));
+    
+    return c.json({ data: enrichedAssignments }, 200);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to get teaching assignments';
+    return c.json({ error: message }, 500);
+  }
+});
 
 /**
  * GET /teaching-assignments
@@ -76,13 +112,11 @@ teachingAssignments.get('/:id', requireAuth, async (c) => {
 teachingAssignments.post(
   '/',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', teachingAssignmentSchemas.createTeachingAssignmentSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as CreateTeachingAssignmentRequest;
       const assignment = await teachingAssignmentService.create(c.env.DB, tenant.schoolId, body);
@@ -112,13 +146,11 @@ teachingAssignments.post(
 teachingAssignments.patch(
   '/:id',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', teachingAssignmentSchemas.updateTeachingAssignmentSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const id = c.req.param('id')!; // Route guarantees id exists
       const body = c.req.valid('json') as UpdateTeachingAssignmentRequest;
@@ -144,6 +176,39 @@ teachingAssignments.patch(
         return c.json({ error: 'Forbidden' }, 403);
       }
       const message = error instanceof Error ? error.message : 'Failed to update teaching assignment';
+      return c.json({ error: message }, 500);
+    }
+  }
+);
+
+/**
+ * DELETE /teaching-assignments/:id
+ * Delete teaching assignment
+ * Authorization: Principal only
+ */
+teachingAssignments.delete(
+  '/:id',
+  requireAuth,
+  requirePrincipal(),
+  async (c) => {
+    try {
+      const tenant = requireSchoolTenant(c);
+      const id = c.req.param('id')!;
+      
+      // Get current state for audit
+      const before = await teachingAssignmentService.getById(c.env.DB, id, tenant.schoolId);
+      
+      await teachingAssignmentService.deleteAssignment(c.env.DB, id, tenant.schoolId);
+      
+      // Audit log
+      await logAudit(c.env.DB, tenant, 'deleted', 'teaching_assignment', id, before, null);
+      
+      return c.json({ message: 'Teaching assignment deleted successfully' }, 200);
+    } catch (error) {
+      if (error instanceof teachingAssignmentService.TeachingAssignmentError) {
+        return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
+      }
+      const message = error instanceof Error ? error.message : 'Failed to delete teaching assignment';
       return c.json({ error: message }, 500);
     }
   }

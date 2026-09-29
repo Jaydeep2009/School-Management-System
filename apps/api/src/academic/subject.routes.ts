@@ -12,7 +12,7 @@ import { zValidator } from '@hono/zod-validator';
 import * as subjectService from './subject.service';
 import * as subjectSchemas from './academic.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
-import { requireRole } from '../authz/authz.service';
+import { requirePrincipal } from '../auth/role.middleware';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
   CreateSubjectRequest,
@@ -72,13 +72,11 @@ subjects.get('/:id', requireAuth, async (c) => {
 subjects.post(
   '/',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', subjectSchemas.createSubjectSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as CreateSubjectRequest;
       const subject = await subjectService.create(c.env.DB, tenant.schoolId, body);
@@ -108,13 +106,11 @@ subjects.post(
 subjects.patch(
   '/:id',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', subjectSchemas.updateSubjectSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const id = c.req.param('id')!; // Route guarantees id exists
       const body = c.req.valid('json') as UpdateSubjectRequest;

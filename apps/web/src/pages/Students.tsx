@@ -30,13 +30,15 @@ import {
   Info,
   CheckCircle
 } from 'lucide-react';
+import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 type TabType = 'list' | 'import' | 'history';
-type ImportStep = 'template' | 'upload' | 'preview' | 'commit';
+type ImportStep = 'template' | 'configure' | 'upload' | 'preview' | 'commit';
 
 export function Students() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { selectedYear } = useAcademicYear();
   
   // Data state
   const [students, setStudents] = useState<Student[]>([]);
@@ -50,6 +52,7 @@ export function Students() {
   // List filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [batchFilter, setBatchFilter] = useState<string>('all');
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -61,37 +64,69 @@ export function Students() {
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   
+  // Import configuration
+  const [importAcademicYearId, setImportAcademicYearId] = useState('');
+  const [importClassroomId, setImportClassroomId] = useState('');
+  const [importAdmissionBatch, setImportAdmissionBatch] = useState('');
+  
+  // Dropdown data for import
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
+  
   // Login credentials panel
   const [showCredentials, setShowCredentials] = useState(true);
 
   useEffect(() => {
     loadData();
-  }, [statusFilter]);
+  }, [statusFilter, batchFilter, selectedYear?.id]);
 
   const loadData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
+      console.log('[Students] Loading data for year:', selectedYear?.id, selectedYear?.label);
+      
       const filters: Record<string, string> = {};
       if (statusFilter !== 'all') {
         filters.status = statusFilter;
       }
       
-      const [studentsRes, classroomsRes] = await Promise.all([
+      // Add academic year filter if selected
+      if (selectedYear?.id) {
+        filters.academic_year_id = selectedYear.id;
+      }
+      
+      console.log('[Students] Filters:', filters);
+      
+      const [studentsRes, classroomsRes, yearsRes] = await Promise.all([
         apiService.getStudents(filters),
-        apiService.getClassrooms()
+        apiService.getClassrooms(selectedYear?.id ? { academic_year_id: selectedYear.id } : {}),
+        apiService.getAcademicYears()
       ]);
+      
+      console.log('[Students] Loaded:', {
+        students: studentsRes.data?.length || 0,
+        classrooms: classroomsRes.data?.length || 0,
+        years: yearsRes.data?.length || 0
+      });
       
       setStudents(studentsRes.data || studentsRes || []);
       setClassrooms(classroomsRes.data || classroomsRes || []);
+      setAcademicYears(yearsRes.data || yearsRes || []);
+      
+      // Set default academic year for import
+      const activeYear = (yearsRes.data || yearsRes || []).find((y: any) => y.status === 'active');
+      if (activeYear && !importAcademicYearId) {
+        setImportAcademicYearId(activeYear.id);
+      }
     } catch (err) {
-      console.error('Failed to load data:', err);
+      console.error('[Students] Failed to load data:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
       setError(errorMessage);
       // Set empty arrays to prevent undefined errors
       setStudents([]);
       setClassrooms([]);
+      setAcademicYears([]);
     } finally {
       setIsLoading(false);
     }
@@ -105,14 +140,35 @@ export function Students() {
 
   // Filter and paginate students
   const filteredStudents = students.filter((student) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      student.full_name.toLowerCase().includes(query) ||
-      student.login_id.toLowerCase().includes(query) ||
-      student.admission_number?.toLowerCase().includes(query)
-    );
+    // Search query filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = (
+        student.full_name.toLowerCase().includes(query) ||
+        student.login_id.toLowerCase().includes(query) ||
+        student.admission_number?.toLowerCase().includes(query)
+      );
+      if (!matchesSearch) return false;
+    }
+    
+    // Admission batch filter
+    if (batchFilter !== 'all') {
+      if (batchFilter === 'none') {
+        if (student.admission_batch) return false;
+      } else {
+        if (student.admission_batch !== batchFilter) return false;
+      }
+    }
+    
+    return true;
   });
+  
+  // Get unique admission batches for filter
+  const uniqueBatches = Array.from(new Set(
+    students
+      .map(s => s.admission_batch)
+      .filter(Boolean)
+  )).sort();
 
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
   const paginatedStudents = filteredStudents.slice(
@@ -156,7 +212,16 @@ export function Students() {
       setImportError(null);
 
       console.log('Uploading file:', importFile.name);
-      const response = await apiService.previewStudentsImport(importFile, {});
+      const options: any = {};
+      if (importAcademicYearId) options.academic_year_id = importAcademicYearId;
+      if (importClassroomId) options.classroom_id = importClassroomId;
+      if (importAdmissionBatch) options.admission_batch = importAdmissionBatch;
+      
+      console.log('[handleFileUpload] Options being sent:', options);
+      console.log('[handleFileUpload] academicYearId:', importAcademicYearId);
+      console.log('[handleFileUpload] classroomId:', importClassroomId);
+      
+      const response = await apiService.previewStudentsImport(importFile, options);
       console.log('Preview response:', response);
       console.log('Preview response.data:', response.data);
       console.log('Total rows:', response.data?.total_rows);
@@ -180,12 +245,20 @@ export function Students() {
   const handleCommitImport = async () => {
     if (!importPreview?.import_id) return;
 
+    console.log('[handleCommitImport] Starting commit for import_id:', importPreview.import_id);
+
     try {
       setImportLoading(true);
-      await apiService.commitStudentsImport(importPreview.import_id);
+      console.log('[handleCommitImport] Calling commitStudentsImport API...');
+      const result = await apiService.commitStudentsImport(importPreview.import_id);
+      console.log('[handleCommitImport] Commit result:', result);
+      
       setImportStep('commit');
       // Reload students
+      console.log('[handleCommitImport] Reloading students list...');
       await loadData();
+      console.log('[handleCommitImport] Students reloaded successfully');
+      
       // Reset after 2 seconds
       setTimeout(() => {
         setImportStep('template');
@@ -193,6 +266,7 @@ export function Students() {
         setImportPreview(null);
       }, 2000);
     } catch (err) {
+      console.error('[handleCommitImport] Commit failed:', err);
       setImportError(err instanceof Error ? err.message : 'Failed to commit import');
     } finally {
       setImportLoading(false);
@@ -497,6 +571,27 @@ export function Students() {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
+                  <select
+                    value={batchFilter}
+                    onChange={(e) => setBatchFilter(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      outline: 'none',
+                      background: 'white',
+                      minWidth: '180px',
+                    }}
+                  >
+                    <option value="all">All Batches</option>
+                    <option value="none">No Batch</option>
+                    {uniqueBatches.map((batch) => (
+                      <option key={batch} value={batch}>
+                        {batch}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Loading State */}
@@ -556,6 +651,12 @@ export function Students() {
                               Admission No
                             </th>
                             <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+                              Current Class
+                            </th>
+                            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+                              Batch
+                            </th>
+                            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
                               Gender
                             </th>
                             <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
@@ -605,6 +706,41 @@ export function Students() {
                               </td>
                               <td style={{ padding: '16px', color: '#64748b' }}>
                                 {student.admission_number || '—'}
+                              </td>
+                              <td style={{ padding: '16px' }}>
+                                {student.classroom_code ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <School size={14} style={{ color: '#6366f1' }} />
+                                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#0f172a' }}>
+                                      {student.classroom_code}
+                                    </span>
+                                    {student.roll_number && (
+                                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                                        (Roll: {student.roll_number})
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                    Not enrolled
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: '16px' }}>
+                                {student.admission_batch ? (
+                                  <span style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                    background: '#eff6ff',
+                                    color: '#1e40af',
+                                  }}>
+                                    {student.admission_batch}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#cbd5e1' }}>—</span>
+                                )}
                               </td>
                               <td style={{ padding: '16px', color: '#64748b', textTransform: 'capitalize' }}>
                                 {student.gender}
@@ -736,19 +872,19 @@ export function Students() {
                     Import Students from Excel
                   </h3>
                   <p style={{ fontSize: '14px', color: '#64748b' }}>
-                    Follow the 4-step workflow to bulk import student data
+                    Follow the 5-step workflow to bulk import student data
                   </p>
                 </div>
 
                 {/* Step Indicator */}
                 <div style={{ marginBottom: '32px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  {['template', 'upload', 'preview', 'commit'].map((step, idx) => (
+                  {['template', 'configure', 'upload', 'preview', 'commit'].map((step, idx) => (
                     <div key={step} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                       <div style={{
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        background: importStep === step ? '#2563eb' : idx < ['template', 'upload', 'preview', 'commit'].indexOf(importStep) ? '#16a34a' : '#e2e8f0',
+                        background: importStep === step ? '#2563eb' : idx < ['template', 'configure', 'upload', 'preview', 'commit'].indexOf(importStep) ? '#16a34a' : '#e2e8f0',
                         color: 'white',
                         display: 'flex',
                         alignItems: 'center',
@@ -758,7 +894,7 @@ export function Students() {
                       }}>
                         {idx + 1}
                       </div>
-                      {idx < 3 && (
+                      {idx < 4 && (
                         <div style={{ flex: 1, height: '2px', background: '#e2e8f0', marginLeft: '8px' }} />
                       )}
                     </div>
@@ -780,18 +916,130 @@ export function Students() {
                       Download Template
                     </Button>
                     <div style={{ marginTop: '24px' }}>
-                      <Button variant="secondary" onClick={() => setImportStep('upload')}>
+                      <Button variant="secondary" onClick={() => setImportStep('configure')}>
                         I have the file ready
                       </Button>
                     </div>
                   </div>
                 )}
 
-                {/* Step 2: Upload File */}
+                {/* Step 2: Configure Import */}
+                {importStep === 'configure' && (
+                  <div style={{ padding: '32px' }}>
+                    <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
+                      Step 2: Select Classroom & Batch
+                    </h4>
+                    <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
+                      Choose the classroom where students will be enrolled and optionally set an admission batch
+                    </p>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px', maxWidth: '600px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                          Academic Year <span style={{ color: '#dc2626' }}>*</span>
+                        </label>
+                        <select
+                          value={importAcademicYearId}
+                          onChange={(e) => {
+                            setImportAcademicYearId(e.target.value);
+                            setImportClassroomId(''); // Reset classroom when year changes
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            fontSize: '14px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            outline: 'none',
+                            background: 'white',
+                          }}
+                        >
+                          <option value="">Select academic year</option>
+                          {academicYears.map((year) => (
+                            <option key={year.id} value={year.id}>
+                              {year.label || year.name} {year.status === 'active' ? '(Active)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                          Classroom <span style={{ color: '#dc2626' }}>*</span>
+                        </label>
+                        <select
+                          value={importClassroomId}
+                          onChange={(e) => setImportClassroomId(e.target.value)}
+                          disabled={!importAcademicYearId}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            fontSize: '14px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            outline: 'none',
+                            background: 'white',
+                          }}
+                        >
+                          <option value="">Select classroom</option>
+                          {classrooms
+                            .filter(c => c.academic_year_id === importAcademicYearId)
+                            .map((classroom) => (
+                              <option key={classroom.id} value={classroom.id}>
+                                {classroom.classroom_code} - {classroom.grade_name} {classroom.division_name}
+                              </option>
+                            ))}
+                        </select>
+                        {!importAcademicYearId && (
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            Select an academic year first
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
+                          Admission Batch (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={importAdmissionBatch}
+                          onChange={(e) => setImportAdmissionBatch(e.target.value)}
+                          placeholder="e.g., 2024 Batch, Class of 2025"
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            fontSize: '14px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            outline: 'none',
+                          }}
+                        />
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                          This will be applied to all imported students
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
+                      <Button 
+                        onClick={() => setImportStep('upload')} 
+                        disabled={!importAcademicYearId || !importClassroomId}
+                      >
+                        Continue to Upload
+                      </Button>
+                      <Button variant="secondary" onClick={() => setImportStep('template')}>
+                        Back
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Upload File */}
                 {importStep === 'upload' && (
                   <div style={{ padding: '32px' }}>
                     <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
-                      Step 2: Upload & Validate
+                      Step 3: Upload & Validate
                     </h4>
                     <div
                       style={{
@@ -846,12 +1094,12 @@ export function Students() {
                   </div>
                 )}
 
-                {/* Step 3: Preview Results */}
+                {/* Step 4: Preview Results */}
                 {importStep === 'preview' && importPreview && (
                   <div style={{ padding: '32px' }}>
                     {console.log('Rendering preview with:', importPreview)}
                     <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
-                      Step 3: Preview Results
+                      Step 4: Preview Results
                     </h4>
                     <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                       <div style={{ padding: '16px', background: '#f0f9ff', borderRadius: '8px' }}>
@@ -903,7 +1151,7 @@ export function Students() {
                   </div>
                 )}
 
-                {/* Step 4: Success */}
+                {/* Step 5: Success */}
                 {importStep === 'commit' && (
                   <div style={{ textAlign: 'center', padding: '48px' }}>
                     <CheckCircle size={64} style={{ color: '#16a34a', marginBottom: '16px' }} />

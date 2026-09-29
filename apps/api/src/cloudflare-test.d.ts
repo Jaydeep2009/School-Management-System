@@ -4,6 +4,7 @@
 declare module 'cloudflare:workers' {
   export interface Env {
     DB: D1Database;
+    STORAGE: R2Bucket;
     TEST_MIGRATIONS?: any;
     JWT_SECRET?: string;
   }

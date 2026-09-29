@@ -47,7 +47,7 @@ export const updateFeeCategorySchema = z.object({
  * Create fee charge schema
  */
 export const createFeeChargeSchema = z.object({
-  student_id: z.string().uuid('Invalid student ID'),
+  student_id: z.string().min(1, 'Student ID is required'),
   academic_year_id: z.string().uuid('Invalid academic year ID'),
   enrollment_id: z.string().uuid('Invalid enrollment ID').optional(),
   fee_category_id: z.string().uuid('Invalid fee category ID').optional(),
@@ -93,7 +93,7 @@ export const voidChargeSchema = z.object({
  * Create fee payment schema
  */
 export const createFeePaymentSchema = z.object({
-  student_id: z.string().uuid('Invalid student ID'),
+  student_id: z.string().min(1, 'Student ID is required'),
   academic_year_id: z.string().uuid('Invalid academic year ID'),
   amount_paise: z.number()
     .int('Amount must be an integer')

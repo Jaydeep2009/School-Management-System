@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../components/layout/Layout';
 import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
@@ -17,16 +18,18 @@ export function Birthdays() {
   const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterThisWeek, setFilterThisWeek] = useState(false);
 
   useEffect(() => {
     loadBirthdays();
-  }, []);
+  }, [filterThisWeek]);
 
   const loadBirthdays = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await apiService.getUpcomingBirthdays({});
+      const params = filterThisWeek ? { thisWeek: true } : {};
+      const response = await apiService.getUpcomingBirthdays(params);
       setBirthdays(response.data || response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load birthdays');
@@ -38,11 +41,21 @@ export function Birthdays() {
   if (!user) return null;
 
   return (
-    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+    <Layout schoolName={'SMS'} principalName={user.loginId || 'User'} role={user.role} onLogout={logout}>
       <div style={{ padding: '32px' }}>
-        <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Birthdays</h1>
-          <p style={{ fontSize: '14px', color: '#64748b' }}>Upcoming birthdays for teachers and students</p>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Birthdays</h1>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>Upcoming birthdays for teachers and students</p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button 
+              variant={filterThisWeek ? 'primary' : 'secondary'} 
+              onClick={() => setFilterThisWeek(!filterThisWeek)}
+            >
+              {filterThisWeek ? 'Show All' : 'This Week'}
+            </Button>
+          </div>
         </div>
 
         <Card>

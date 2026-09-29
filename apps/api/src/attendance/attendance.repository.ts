@@ -108,7 +108,7 @@ export async function findSessionsWithDetails(
   let query = `SELECT 
                  a.id, a.school_id, a.academic_year_id, a.classroom_id, a.subject_id,
                  a.session_date, a.period_no, a.taken_by, a.status, a.created_at, a.updated_at,
-                 c.grade || '-' || c.division as classroom_name,
+                 c.grade_name || '-' || c.division_name as classroom_name,
                  s.name as subject_name,
                  COUNT(e.student_id) as entry_count
                FROM attendance_sessions a
@@ -146,7 +146,7 @@ export async function findSessionsWithDetails(
 
   query += ` GROUP BY a.id, a.school_id, a.academic_year_id, a.classroom_id, a.subject_id,
                       a.session_date, a.period_no, a.taken_by, a.status, a.created_at, a.updated_at,
-                      c.grade, c.division, s.name
+                      c.grade_name, c.division_name, s.name
              ORDER BY a.session_date DESC, a.period_no DESC`;
 
   const result = await db.prepare(query).bind(...params).all<AttendanceSessionWithDetails>();

@@ -139,6 +139,98 @@ timetable.put('/:id', requireAuth, async (c) => {
 });
 
 /**
+ * POST /timetables/:id/image
+ * Upload timetable image
+ * Authorization: Principal only
+ */
+timetable.post('/:id/image', requireAuth, async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    const id = c.req.param('id');
+    if (!id) return c.json({ error: 'Timetable ID required' }, 400);
+
+    // Parse multipart form data
+    const formData = await c.req.formData();
+    const file = formData.get('image');
+
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: 'Image file is required' }, 400);
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ error: 'Invalid file type. Allowed: JPEG, PNG, WebP' }, 400);
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return c.json({ error: 'File too large. Maximum size: 5MB' }, 400);
+    }
+
+    const result = await timetableService.uploadTimetableImage(
+      c.env.DB,
+      c.env.STORAGE,
+      id,
+      file,
+      tenant
+    );
+
+    return c.json({ data: result }, 200);
+  } catch (error) {
+    if (error instanceof TimetableError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to upload image';
+    console.error('Image upload error:', error);
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
+ * GET /timetables/:id/image/:filename
+ * Get timetable image from R2
+ * Authorization: Principal, Teacher (assigned), Student (enrolled)
+ */
+timetable.get('/:id/image/:filename', requireAuth, async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    const id = c.req.param('id');
+    const filename = c.req.param('filename');
+    if (!id || !filename) return c.json({ error: 'Missing parameters' }, 400);
+
+    // Verify user has access to this timetable
+    const timetableData = await timetableService.getTimetable(c.env.DB, id, tenant);
+    if (!timetableData) {
+      return c.json({ error: 'Timetable not found or access denied' }, 404);
+    }
+
+    // Get image from R2
+    const objectKey = `timetables/${tenant.schoolId}/${id}/${filename}`;
+    const object = await c.env.STORAGE.get(objectKey);
+
+    if (!object) {
+      return c.json({ error: 'Image not found' }, 404);
+    }
+
+    // Return image with appropriate headers
+    return new Response(object.body, {
+      headers: {
+        'Content-Type': object.httpMetadata?.contentType || 'image/jpeg',
+        'Cache-Control': 'public, max-age=31536000', // Cache for 1 year
+      },
+    });
+  } catch (error) {
+    if (error instanceof TimetableError) {
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to get image';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
  * DELETE /timetables/:id
  * Delete draft timetable
  * Authorization: Principal only

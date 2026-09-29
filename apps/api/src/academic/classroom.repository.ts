@@ -8,6 +8,35 @@
 import type { Classroom, ClassroomStatus, ClassroomWithRelations } from './academic.types';
 
 /**
+ * Find classroom by ID with related data (teacher name, academic year)
+ * SECURITY: Filters by school_id
+ */
+export async function findByIdWithRelations(
+  db: D1Database,
+  id: string,
+  schoolId: string
+): Promise<ClassroomWithRelations | null> {
+  const result = await db
+    .prepare(
+      `SELECT 
+        c.id, c.school_id, c.academic_year_id, c.classroom_code, c.grade_name, c.division_name,
+        c.grade_level, c.class_teacher_id, c.status, c.created_at, c.updated_at,
+        ay.label as academic_year_label,
+        t.first_name || ' ' || t.last_name as class_teacher_name
+       FROM classrooms c
+       LEFT JOIN academic_years ay ON c.academic_year_id = ay.id
+       LEFT JOIN teacher_profiles t ON c.class_teacher_id = t.user_id
+       WHERE c.id = ?
+         AND c.school_id = ?
+       LIMIT 1`
+    )
+    .bind(id, schoolId)
+    .first<ClassroomWithRelations>();
+
+  return result || null;
+}
+
+/**
  * Find classroom by ID
  * SECURITY: Filters by school_id
  */
@@ -29,6 +58,50 @@ export async function findById(
     .first<Classroom>();
 
   return result || null;
+}
+
+/**
+ * Find all classrooms for a school with related data
+ * SECURITY: Filters by school_id
+ */
+export async function findAllWithRelations(
+  db: D1Database,
+  schoolId: string,
+  filters?: {
+    academic_year_id?: string;
+    status?: ClassroomStatus;
+  }
+): Promise<ClassroomWithRelations[]> {
+  let query = `SELECT 
+                c.id, c.school_id, c.academic_year_id, c.classroom_code, c.grade_name, c.division_name,
+                c.grade_level, c.class_teacher_id, c.status, c.created_at, c.updated_at,
+                ay.label as academic_year_label,
+                t.first_name || ' ' || t.last_name as class_teacher_name
+               FROM classrooms c
+               LEFT JOIN academic_years ay ON c.academic_year_id = ay.id
+               LEFT JOIN teacher_profiles t ON c.class_teacher_id = t.user_id
+               WHERE c.school_id = ?`;
+  
+  const bindings: unknown[] = [schoolId];
+
+  if (filters?.academic_year_id) {
+    query += ' AND c.academic_year_id = ?';
+    bindings.push(filters.academic_year_id);
+  }
+
+  if (filters?.status) {
+    query += ' AND c.status = ?';
+    bindings.push(filters.status);
+  }
+
+  query += ' ORDER BY c.grade_level ASC, c.division_name ASC';
+
+  const result = await db
+    .prepare(query)
+    .bind(...bindings)
+    .all<ClassroomWithRelations>();
+
+  return result.results || [];
 }
 
 /**
@@ -274,5 +347,22 @@ export async function update(
     .bind(...bindings)
     .run();
 
+  return result.meta.changes > 0;
+}
+
+/**
+ * Delete classroom
+ * SECURITY: Filters by school_id
+ */
+export async function deleteClassroom(
+  db: D1Database,
+  id: string,
+  schoolId: string
+): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM classrooms WHERE id = ? AND school_id = ?')
+    .bind(id, schoolId)
+    .run();
+  
   return result.meta.changes > 0;
 }

@@ -12,7 +12,8 @@ import { zValidator } from '@hono/zod-validator';
 import * as enrollmentService from './enrollment.service';
 import * as enrollmentSchemas from './academic.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
-import { requireRole, ensureCanViewStudent } from '../authz/authz.service';
+import { requirePrincipal } from '../auth/role.middleware';
+import { ensureCanViewStudent } from '../authz/authz.service';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
   CreateEnrollmentRequest,
@@ -99,13 +100,11 @@ enrollments.get('/:id', requireAuth, async (c) => {
 enrollments.post(
   '/',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', enrollmentSchemas.createEnrollmentSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as CreateEnrollmentRequest;
       const enrollment = await enrollmentService.create(c.env.DB, tenant.schoolId, body);
@@ -135,13 +134,11 @@ enrollments.post(
 enrollments.patch(
   '/:id',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', enrollmentSchemas.updateEnrollmentSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const id = c.req.param('id')!; // Route guarantees id exists
       const body = c.req.valid('json') as UpdateEnrollmentRequest;

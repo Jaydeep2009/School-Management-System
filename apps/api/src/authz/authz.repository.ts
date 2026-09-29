@@ -77,7 +77,7 @@ export async function findClassroom(
 ): Promise<Classroom | null> {
   const result = await db
     .prepare(
-      `SELECT id, school_id, class_teacher_id, name, section, academic_year
+      `SELECT id, school_id, class_teacher_id, grade_name, division_name, academic_year_id
        FROM classrooms
        WHERE id = ?
          AND school_id = ?
@@ -126,12 +126,12 @@ export async function findActiveEnrollment(
 ): Promise<Enrollment | null> {
   const result = await db
     .prepare(
-      `SELECT id, student_id, classroom_id, school_id, academic_year, enrollment_date, status
+      `SELECT id, student_id, classroom_id, school_id, academic_year_id, roll_number, joined_on, left_on, status, outcome, from_enrollment_id, created_at, updated_at
        FROM enrollments
        WHERE student_id = ?
          AND classroom_id = ?
          AND school_id = ?
-         AND status = 'active'
+         AND status IN ('active', 'planned')
        LIMIT 1`
     )
     .bind(studentId, classroomId, schoolId)
@@ -151,12 +151,12 @@ export async function findStudentActiveEnrollment(
 ): Promise<Enrollment | null> {
   const result = await db
     .prepare(
-      `SELECT id, student_id, classroom_id, school_id, academic_year, enrollment_date, status
+      `SELECT id, student_id, classroom_id, school_id, academic_year_id, roll_number, joined_on, left_on, status, outcome, from_enrollment_id, created_at, updated_at
        FROM enrollments
        WHERE student_id = ?
          AND school_id = ?
-         AND status = 'active'
-       ORDER BY enrollment_date DESC
+         AND status IN ('active', 'planned')
+       ORDER BY joined_on DESC
        LIMIT 1`
     )
     .bind(studentId, schoolId)

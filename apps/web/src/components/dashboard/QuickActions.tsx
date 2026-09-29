@@ -44,9 +44,9 @@ export function QuickActions() {
     },
     {
       icon: DollarSign,
-      label: 'Record Fee Payment',
+      label: 'Manage Fees',
       color: '#ea580c',
-      path: '/fees/payment/new',
+      path: '/fees',
     },
     {
       icon: TrendingUp,

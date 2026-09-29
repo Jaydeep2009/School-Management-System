@@ -28,6 +28,11 @@ export function useDashboard(schoolId: string, academicYearId: string) {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
+      console.log('[Dashboard] Loading data for academic year:', academicYearId);
+
+      // Build filters for year-dependent data
+      const yearFilter = academicYearId ? { academic_year_id: academicYearId } : {};
+      
       // Fetch all dashboard data in parallel
       const [
         studentsResponse,
@@ -38,15 +43,17 @@ export function useDashboard(schoolId: string, academicYearId: string) {
         birthdaysResponse,
         attendanceSessionsResponse,
         assessmentsResponse,
+        feesStatsResponse,
       ] = await Promise.allSettled([
-        apiService.getStudents(),
+        apiService.getStudents(yearFilter),
         apiService.getTeachers(),
-        apiService.getClassrooms(),
+        apiService.getClassrooms(yearFilter),
         apiService.getSubjects(),
         apiService.getAcademicYears(),
         apiService.getUpcomingBirthdays(),
-        apiService.getAttendanceSessions({ academic_year_id: academicYearId }),
-        apiService.getAssessments({ academic_year_id: academicYearId }),
+        apiService.getAttendanceSessions(yearFilter),
+        apiService.getAssessments(yearFilter),
+        apiService.getFeesStats(yearFilter),
       ]);
 
       // Extract successful responses and unwrap data property
@@ -58,9 +65,18 @@ export function useDashboard(schoolId: string, academicYearId: string) {
       const birthdays = birthdaysResponse.status === 'fulfilled' ? (birthdaysResponse.value.data || birthdaysResponse.value) : [];
       const attendanceSessions = attendanceSessionsResponse.status === 'fulfilled' ? (attendanceSessionsResponse.value.data || attendanceSessionsResponse.value) : [];
       const assessments = assessmentsResponse.status === 'fulfilled' ? (assessmentsResponse.value.data || assessmentsResponse.value) : [];
+      const feesStats = feesStatsResponse.status === 'fulfilled' ? feesStatsResponse.value.data : null;
+
+      console.log('[Dashboard] Loaded:', {
+        students: (students as any[]).length,
+        teachers: (teachers as any[]).length,
+        classrooms: (classrooms as any[]).length,
+        subjects: (subjects as any[]).length,
+        academicYears: (academicYears as any[]).length
+      });
 
       // Find current academic year
-      const currentAcademicYear = (academicYears as any[]).find((ay: any) => ay.status === 'current');
+      const currentAcademicYear = (academicYears as any[]).find((ay: any) => ay.status === 'active' || ay.status === 'current');
 
       // Calculate attendance stats for today
       const today = new Date().toISOString().split('T')[0];
@@ -113,6 +129,28 @@ export function useDashboard(schoolId: string, academicYearId: string) {
         month: birthday.month,
       }));
 
+      // Calculate average attendance for the academic year
+      let averageAttendance = 0;
+      if (totalStudents > 0) {
+        // Get all sessions for the academic year
+        const yearSessions = (attendanceSessions as any[]);
+        let totalPresent = 0;
+        let totalMarked = 0;
+        
+        yearSessions.forEach((session: any) => {
+          if (session.attendance_entries) {
+            session.attendance_entries.forEach((entry: any) => {
+              totalMarked++;
+              if (entry.status === 'present') totalPresent++;
+            });
+          }
+        });
+        
+        if (totalMarked > 0) {
+          averageAttendance = (totalPresent / totalMarked) * 100;
+        }
+      }
+
       const dashboardData: DashboardData = {
         stats: {
           totalStudents: (students as any[]).length,
@@ -124,6 +162,7 @@ export function useDashboard(schoolId: string, academicYearId: string) {
           present: presentCount,
           absent: absentCount,
           notMarked: notMarkedCount,
+          averageAttendance,
         },
         assessments: assessmentProgress,
         birthdays: birthdayList,
@@ -137,6 +176,13 @@ export function useDashboard(schoolId: string, academicYearId: string) {
           totalStudents: (students as any[]).length,
         } : undefined,
         recentActivity: [], // Will be populated when audit endpoint is available
+        fees: feesStats ? {
+          totalCollected: feesStats.total_collected_paise,
+          totalPending: feesStats.total_pending_paise,
+          totalCharges: feesStats.total_charges_paise,
+          chargeCount: feesStats.charge_count,
+          paymentCount: feesStats.payment_count,
+        } : undefined,
       };
 
       setState({ data: dashboardData, isLoading: false, error: null });

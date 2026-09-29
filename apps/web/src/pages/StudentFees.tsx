@@ -45,7 +45,8 @@ export function StudentFees() {
         apiService.getStudentMeFees(selectedYear.id)
       ]);
 
-      setProfile(profileRes.data);
+      // Extract the nested profile object
+      setProfile(profileRes.data?.profile || profileRes.data);
       
       // Convert paise to dollars
       const feesData = feesRes.data;

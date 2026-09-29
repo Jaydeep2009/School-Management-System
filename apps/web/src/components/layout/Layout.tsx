@@ -11,18 +11,18 @@ interface LayoutProps {
   children: ReactNode;
   schoolName: string;
   principalName: string;
-  currentAcademicYear?: string;
-  academicYearStatus?: 'upcoming' | 'current' | 'closed';
   onLogout: () => void;
+  role?: 'principal' | 'teacher' | 'student';
+  isClassTeacher?: boolean;
 }
 
 export function Layout({
   children,
   schoolName,
   principalName,
-  currentAcademicYear,
-  academicYearStatus,
   onLogout,
+  role = 'principal',
+  isClassTeacher = false,
 }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isSidebarCollapsed = false;
@@ -34,12 +34,12 @@ export function Layout({
         principalName={principalName}
         onLogout={onLogout}
         isCollapsed={isSidebarCollapsed}
+        role={role}
+        isClassTeacher={isClassTeacher}
       />
       <div className={`layout-main ${isSidebarCollapsed ? 'layout-main-expanded' : ''}`}>
         <Header
           schoolName={schoolName}
-          currentAcademicYear={currentAcademicYear}
-          academicYearStatus={academicYearStatus}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
         <main className="layout-content">

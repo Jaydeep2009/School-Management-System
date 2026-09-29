@@ -17,6 +17,8 @@ export interface TeacherProfile {
   first_name: string;
   middle_name: string | null;
   last_name: string;
+  full_name?: string; // Computed field from first_name + middle_name + last_name
+  login_id?: string; // Joined from users table
   phone: string | null;
   date_of_birth: string | null;
   dob_md: string | null;
@@ -69,6 +71,8 @@ export interface StudentProfile {
   first_name: string;
   middle_name: string | null;
   last_name: string;
+  full_name?: string; // Computed field from first_name + middle_name + last_name
+  login_id?: string; // Joined from users table
   gender: string | null;
   date_of_birth: string | null;
   dob_md: string | null;
@@ -78,6 +82,7 @@ export interface StudentProfile {
   parent_name: string | null;
   parent_phone: string | null;
   parent_email: string | null;
+  admission_batch: string | null; // Grouping by admission year/batch
   status: StudentStatus;
   created_at: string;
   updated_at: string;
@@ -96,6 +101,7 @@ export interface CreateStudentRequest {
   parent_name?: string;
   parent_phone?: string;
   parent_email?: string;
+  admission_batch?: string;
 }
 
 export interface UpdateStudentRequest {
@@ -111,6 +117,7 @@ export interface UpdateStudentRequest {
   parent_name?: string;
   parent_phone?: string;
   status?: StudentStatus;
+  admission_batch?: string;
 }
 
 export interface StudentWithUser extends StudentProfile {

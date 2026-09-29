@@ -42,7 +42,7 @@ async function getClassroom(
 ) {
   const result = await db
     .prepare(
-      `SELECT id, school_id, academic_year_id, name, section, class_teacher_id
+      `SELECT id, school_id, academic_year_id, grade_name, division_name, class_teacher_id
        FROM classrooms
        WHERE id = ?
          AND school_id = ?
@@ -53,8 +53,8 @@ async function getClassroom(
       id: string;
       school_id: string;
       academic_year_id: string;
-      name: string;
-      section: string;
+      grade_name: string;
+      division_name: string;
       class_teacher_id: string | null;
     }>();
 
@@ -71,7 +71,7 @@ async function getSubject(
 ) {
   const result = await db
     .prepare(
-      `SELECT id, school_id, code, name, status
+      `SELECT id, school_id, subject_code, name, status
        FROM subjects
        WHERE id = ?
          AND school_id = ?
@@ -99,7 +99,7 @@ async function getAcademicYear(
 ) {
   const result = await db
     .prepare(
-      `SELECT id, school_id, name, start_date, end_date, status
+      `SELECT id, school_id, label, starts_on, ends_on, status
        FROM academic_years
        WHERE id = ?
          AND school_id = ?
@@ -109,9 +109,9 @@ async function getAcademicYear(
     .first<{
       id: string;
       school_id: string;
-      name: string;
-      start_date: string;
-      end_date: string;
+      label: string;
+      starts_on: string;
+      ends_on: string;
       status: string;
     }>();
 
@@ -236,11 +236,15 @@ export async function listAssessments(
   const assessments = await marksRepo.findAssessments(db, tenant.schoolId, filters);
 
   // Filter by authorization
-  // For now, we rely on service-level authorization per assessment
-  // In production, consider optimizing with query-level filtering
   const authorized: AssessmentWithDetails[] = [];
 
   for (const assessment of assessments) {
+    // Allow creator to always see their own assessments
+    if (assessment.created_by === tenant.userId) {
+      authorized.push(assessment);
+      continue;
+    }
+    
     const canView = await marksAuthz.canViewAssessment(db, tenant, assessment);
     if (canView) {
       authorized.push(assessment);
@@ -731,7 +735,7 @@ export async function getMyMarks(
        FROM academic_years
        WHERE school_id = ?
          AND status = 'active'
-       ORDER BY start_date DESC
+       ORDER BY starts_on DESC
        LIMIT 1`
     )
     .bind(tenant.schoolId)

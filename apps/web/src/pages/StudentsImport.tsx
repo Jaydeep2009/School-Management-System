@@ -2,7 +2,7 @@
  * Students Import Page - Bulk Import Students from Excel
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { Card } from '../components/ui/Card';
@@ -21,8 +21,40 @@ export function StudentsImport() {
   const [preview, setPreview] = useState<any>(null);
   const [isCommitting, setIsCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [academicYear, setAcademicYear] = useState('');
-  const [classroomCode, setClassroomCode] = useState('');
+  const [academicYearId, setAcademicYearId] = useState('');
+  const [classroomId, setClassroomId] = useState('');
+  const [admissionBatch, setAdmissionBatch] = useState('');
+  
+  // Dropdown data
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
+
+  useEffect(() => {
+    loadDropdownData();
+  }, []);
+
+  const loadDropdownData = async () => {
+    try {
+      setIsLoadingDropdowns(true);
+      const [yearsRes, classroomsRes] = await Promise.all([
+        apiService.getAcademicYears(),
+        apiService.getClassrooms()
+      ]);
+      setAcademicYears(yearsRes.data || []);
+      setClassrooms(classroomsRes.data || []);
+      
+      // Set default to active academic year
+      const activeYear = yearsRes.data?.find((y: any) => y.status === 'active');
+      if (activeYear) {
+        setAcademicYearId(activeYear.id);
+      }
+    } catch (err) {
+      console.error('Failed to load dropdown data:', err);
+    } finally {
+      setIsLoadingDropdowns(false);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -41,8 +73,9 @@ export function StudentsImport() {
 
     try {
       const options: any = {};
-      if (academicYear) options.academic_year = academicYear;
-      if (classroomCode) options.classroom_code = classroomCode;
+      if (academicYearId) options.academic_year_id = academicYearId;
+      if (classroomId) options.classroom_id = classroomId;
+      if (admissionBatch) options.admission_batch = admissionBatch;
 
       const response = await apiService.previewStudentsImport(file, options);
       setPreview(response.data);
@@ -64,20 +97,28 @@ export function StudentsImport() {
       return;
     }
 
-    const enrollMsg = classroomCode 
-      ? ` and enrolled in classroom ${classroomCode}`
+    const classroom = classrooms.find(c => c.id === classroomId);
+    const enrollMsg = classroom 
+      ? ` and enrolled in classroom ${classroom.classroom_code}`
       : '';
 
     if (!confirm(`Commit this import? This will create ${preview.valid_rows} student(s)${enrollMsg}.`)) return;
+
+    console.log('[handleCommit] Starting commit for import_id:', preview.import_id);
+    console.log('[handleCommit] Options - classroomId:', classroomId, 'academicYearId:', academicYearId);
 
     setIsCommitting(true);
     setError(null);
 
     try {
-      await apiService.commitStudentsImport(preview.import_id);
+      console.log('[handleCommit] Calling commitStudentsImport API...');
+      const result = await apiService.commitStudentsImport(preview.import_id);
+      console.log('[handleCommit] Commit result:', result);
+      
       alert('Students imported successfully!');
       navigate('/students');
     } catch (err) {
+      console.error('[handleCommit] Commit failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to commit import');
     } finally {
       setIsCommitting(false);
@@ -151,35 +192,68 @@ S002,Sarah,Ann,Smith,female,2011-03-22,2345678901,sarah.smith@example.com,456 Oa
               <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '12px' }}>
                 Enrollment Options (Optional)
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' }}>
                     Academic Year
                   </label>
-                  <input
-                    type="text"
-                    value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}
-                    placeholder="e.g., 2024-2025"
-                    disabled={isUploading || isCommitting}
+                  <select
+                    value={academicYearId}
+                    onChange={(e) => setAcademicYearId(e.target.value)}
+                    disabled={isUploading || isCommitting || isLoadingDropdowns}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
                       border: '1px solid #cbd5e1',
                       borderRadius: '6px',
                       fontSize: '14px',
+                      background: 'white',
                     }}
-                  />
+                  >
+                    <option value="">Select academic year</option>
+                    {academicYears.map((year) => (
+                      <option key={year.id} value={year.id}>
+                        {year.label || year.name} {year.status === 'active' ? '(Active)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' }}>
-                    Classroom Code
+                    Classroom
+                  </label>
+                  <select
+                    value={classroomId}
+                    onChange={(e) => setClassroomId(e.target.value)}
+                    disabled={isUploading || isCommitting || isLoadingDropdowns || !academicYearId}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      background: 'white',
+                    }}
+                  >
+                    <option value="">Select classroom</option>
+                    {classrooms
+                      .filter(c => c.academic_year_id === academicYearId)
+                      .map((classroom) => (
+                        <option key={classroom.id} value={classroom.id}>
+                          {classroom.classroom_code} - {classroom.grade_name} {classroom.division_name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#475569', marginBottom: '6px' }}>
+                    Admission Batch
                   </label>
                   <input
                     type="text"
-                    value={classroomCode}
-                    onChange={(e) => setClassroomCode(e.target.value)}
-                    placeholder="e.g., 1A"
+                    value={admissionBatch}
+                    onChange={(e) => setAdmissionBatch(e.target.value)}
+                    placeholder="e.g., 2024 Batch"
                     disabled={isUploading || isCommitting}
                     style={{
                       width: '100%',
@@ -192,7 +266,7 @@ S002,Sarah,Ann,Smith,female,2011-03-22,2345678901,sarah.smith@example.com,456 Oa
                 </div>
               </div>
               <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-                If provided, students will be enrolled in the specified classroom
+                If classroom is selected, students will be automatically enrolled. Admission batch helps group students by year.
               </p>
             </div>
 

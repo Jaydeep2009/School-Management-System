@@ -15,7 +15,7 @@ import { zValidator } from '@hono/zod-validator';
 import * as academicYearService from './academic-year.service';
 import * as academicYearSchemas from './academic.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
-import { requireRole } from '../authz/authz.service';
+import { requirePrincipal } from '../auth/role.middleware';
 import { logAudit } from '../lib/audit/audit.service';
 import type {
   CreateAcademicYearRequest,
@@ -90,13 +90,11 @@ academicYears.get('/:id', requireAuth, async (c) => {
 academicYears.post(
   '/',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', academicYearSchemas.createAcademicYearSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const body = c.req.valid('json') as CreateAcademicYearRequest;
       const year = await academicYearService.create(c.env.DB, tenant.schoolId, body);
@@ -108,9 +106,6 @@ academicYears.post(
     } catch (error) {
       if (error instanceof academicYearService.AcademicYearError) {
         return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
-      }
-      if (error instanceof Error && error.message.includes('Forbidden')) {
-        return c.json({ error: 'Forbidden' }, 403);
       }
       const message = error instanceof Error ? error.message : 'Failed to create academic year';
       return c.json({ error: message }, 500);
@@ -126,13 +121,11 @@ academicYears.post(
 academicYears.patch(
   '/:id',
   requireAuth,
+  requirePrincipal(),
   zValidator('json', academicYearSchemas.updateAcademicYearSchema),
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      
-      // Authorization: Principal only
-      requireRole(tenant, 'principal');
       
       const id = c.req.param('id')!; // Route guarantees id exists
       const body = c.req.valid('json') as UpdateAcademicYearRequest;
@@ -164,12 +157,9 @@ academicYears.patch(
  * Activate academic year (set to current)
  * Authorization: Principal only
  */
-academicYears.post('/:id/activate', requireAuth, async (c) => {
+academicYears.post('/:id/activate', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     const year = await academicYearService.activate(c.env.DB, id, tenant.schoolId);
@@ -182,9 +172,6 @@ academicYears.post('/:id/activate', requireAuth, async (c) => {
     if (error instanceof academicYearService.AcademicYearError) {
       return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
     }
-    if (error instanceof Error && error.message.includes('Forbidden')) {
-      return c.json({ error: 'Forbidden' }, 403);
-    }
     const message = error instanceof Error ? error.message : 'Failed to activate academic year';
     return c.json({ error: message }, 500);
   }
@@ -195,12 +182,9 @@ academicYears.post('/:id/activate', requireAuth, async (c) => {
  * Close academic year
  * Authorization: Principal only
  */
-academicYears.post('/:id/close', requireAuth, async (c) => {
+academicYears.post('/:id/close', requireAuth, requirePrincipal(), async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
-    
-    // Authorization: Principal only
-    requireRole(tenant, 'principal');
     
     const id = c.req.param('id')!; // Route guarantees id exists
     const year = await academicYearService.close(c.env.DB, id, tenant.schoolId);
