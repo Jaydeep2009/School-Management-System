@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Fees Management Page - List Fee Charges and Record Payments
  * Now with student grouping for better UX
  */
@@ -184,7 +184,7 @@ export function Fees() {
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Fees Management</h1>
             <p style={{ fontSize: '14px', color: '#64748b' }}>
-              Viewing fees for: {selectedYear.label} • {groupedCharges.length} student{groupedCharges.length !== 1 ? 's' : ''}
+              Viewing fees for: {selectedYear.label} � {groupedCharges.length} student{groupedCharges.length !== 1 ? 's' : ''}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -360,11 +360,6 @@ export function Fees() {
                                           <div style={{ color: '#0f172a', fontWeight: 500 }}>
                                             ${charge.amount.toFixed(2)}
                                           </div>
-                                          {charge.total_paid > 0 && (
-                                            <div style={{ color: '#16a34a', fontSize: '12px' }}>
-                                              Paid: ${charge.total_paid.toFixed(2)}
-                                            </div>
-                                          )}
                                         </div>
                                         <div style={{ width: '80px', textAlign: 'right' }}>
                                           {charge.status === 'paid' ? (
