@@ -5,6 +5,7 @@
 import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useIsClassTeacher } from '../../hooks/useIsClassTeacher';
 import './Layout.css';
 
 interface LayoutProps {
@@ -22,10 +23,18 @@ export function Layout({
   principalName,
   onLogout,
   role = 'principal',
-  isClassTeacher = false,
+  isClassTeacher: isClassTeacherProp = false,
 }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isSidebarCollapsed = false;
+  
+  // Auto-detect class teacher status for teachers ONLY
+  // Don't call hook for principals or students to avoid unnecessary API calls
+  const hookResult = role === 'teacher' ? useIsClassTeacher() : { isClassTeacher: false, isLoading: false, error: null };
+  const { isClassTeacher: isClassTeacherFromHook, isLoading, error } = hookResult;
+  
+  // Use prop if explicitly provided, otherwise use hook result (for teachers only)
+  const isClassTeacher = role === 'teacher' && isClassTeacherFromHook ? true : isClassTeacherProp;
 
   return (
     <div className="layout">
@@ -36,6 +45,8 @@ export function Layout({
         isCollapsed={isSidebarCollapsed}
         role={role}
         isClassTeacher={isClassTeacher}
+        isLoadingClassTeacher={role === 'teacher' && isLoading}
+        classTeacherError={role === 'teacher' ? error : null}
       />
       <div className={`layout-main ${isSidebarCollapsed ? 'layout-main-expanded' : ''}`}>
         <Header

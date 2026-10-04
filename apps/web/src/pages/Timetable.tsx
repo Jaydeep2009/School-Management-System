@@ -12,7 +12,7 @@ import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
 import { useAcademicYear } from '../contexts/AcademicYearContext';
 import { apiService } from '../services/api';
-import { Calendar, Plus, ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { Calendar, Plus, Trash2 } from 'lucide-react';
 
 export function Timetable() {
   const { user, logout } = useAuth();
@@ -45,6 +45,19 @@ export function Timetable() {
       setError(err instanceof Error ? err.message : 'Failed to load timetables');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (timetableId: string, timetableName: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${timetableName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await apiService.deleteTimetable(timetableId);
+      await loadTimetables();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete timetable');
     }
   };
 
@@ -86,15 +99,21 @@ export function Timetable() {
       <div style={{ padding: '32px' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Timetable</h1>
+            <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Timetable Management</h1>
             <p style={{ fontSize: '14px', color: '#64748b' }}>
               Viewing timetables for: {selectedYear.label}
             </p>
           </div>
-          <Button onClick={() => navigate('/timetable/new')}>
-            <Plus size={16} style={{ marginRight: '8px' }} />
-            New Timetable
-          </Button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button variant="secondary" onClick={() => navigate('/period-setup')}>
+              <Calendar size={16} style={{ marginRight: '8px' }} />
+              Period Setup
+            </Button>
+            <Button onClick={() => navigate('/timetable/upload')}>
+              <Plus size={16} style={{ marginRight: '8px' }} />
+              Upload Timetable
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -108,7 +127,10 @@ export function Timetable() {
                 <Calendar size={48} style={{ color: '#cbd5e1', marginBottom: '16px', margin: '0 auto' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No timetables</h3>
                 <p style={{ fontSize: '14px', marginBottom: '24px' }}>Create a timetable to manage class schedules for this year</p>
-                <Button onClick={() => navigate('/timetable/new')}>Create Timetable</Button>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                  <Button variant="secondary" onClick={() => navigate('/period-setup')}>Setup Periods First</Button>
+                  <Button onClick={() => navigate('/timetable/new')}>Create Timetable</Button>
+                </div>
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
@@ -128,17 +150,7 @@ export function Timetable() {
                       return (
                         <tr key={tt.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                           <td style={{ padding: '12px', fontSize: '14px', fontWeight: 500, color: '#0f172a' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {tt.name}
-                              {tt.image_url && (
-                                <span title="Has timetable image">
-                                  <ImageIcon 
-                                    size={16} 
-                                    style={{ color: '#3b82f6' }} 
-                                  />
-                                </span>
-                              )}
-                            </div>
+                            {tt.name}
                           </td>
                           <td style={{ padding: '12px', fontSize: '14px', color: '#64748b' }}>
                             {tt.classroom_name}
@@ -185,12 +197,23 @@ export function Timetable() {
                             )}
                           </td>
                           <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <Button
-                              variant="secondary"
-                              onClick={() => navigate(`/timetable/${tt.id}`)}
-                            >
-                              <ArrowRight size={16} />
-                            </Button>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <Button
+                                variant="secondary"
+                                onClick={() => navigate(`/timetable/view/${tt.id}`)}
+                                style={{ padding: '8px 16px', fontSize: '13px' }}
+                              >
+                                View Timetable
+                              </Button>
+                              <Button
+                                variant="danger"
+                                onClick={() => handleDelete(tt.id, tt.name)}
+                                style={{ padding: '8px 12px' }}
+                                title="Delete timetable"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );

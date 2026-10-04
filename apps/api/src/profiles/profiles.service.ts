@@ -21,6 +21,7 @@ import * as profilesRepo from './profiles.repository';
 import * as profilesAuthz from './profiles.authorization';
 import { ProfileError } from './profiles.errors';
 import { logAudit } from '../lib/audit/audit.service';
+import { getTodayMMDD, filterBirthdaysThisWeek } from './birthday-utils';
 
 /**
  * =====================================================================
@@ -278,10 +279,11 @@ export async function getStudentBirthdays(
 ): Promise<StudentBirthday[]> {
   profilesAuthz.ensureCanViewStudentBirthdays(tenant);
 
+  // Determine classroom filter based on role
   let classroomIds: string[] | undefined;
 
-  // If teacher, restrict to their class teacher classrooms
   if (tenant.role === 'teacher') {
+    // Teachers can only see birthdays from their class teacher classrooms
     classroomIds = await profilesRepo.findClassTeacherClassrooms(db, tenant.userId, tenant.schoolId);
     
     if (classroomIds.length === 0) {
@@ -290,110 +292,59 @@ export async function getStudentBirthdays(
     }
   }
 
-  // If classroom filter is provided, use it (and verify teacher has access)
+  // If specific classroom requested, validate and filter
   if (filters.classroomId) {
     if (tenant.role === 'teacher') {
       if (!classroomIds?.includes(filters.classroomId)) {
         throw ProfileError.birthdayAccessDenied('You do not have access to this classroom');
       }
-      classroomIds = [filters.classroomId];
-    } else {
-      classroomIds = [filters.classroomId];
     }
+    classroomIds = [filters.classroomId];
   }
 
-  let birthdays: StudentBirthday[];
+  // Build query parameters
+  const queryParams: {
+    schoolId: string;
+    classroomIds?: string[];
+    dobMd?: string;
+    month?: number;
+  } = {
+    schoolId: tenant.schoolId,
+    classroomIds: classroomIds && classroomIds.length > 0 ? classroomIds : undefined,
+  };
 
-  if (filters.month !== undefined) {
-    // For teacher with multiple classrooms, need to query each
-    if (tenant.role === 'teacher' && classroomIds && classroomIds.length > 1 && !filters.classroomId) {
-      birthdays = [];
-      for (const classroomId of classroomIds) {
-        const results = await profilesRepo.findStudentBirthdaysInMonth(
-          db,
-          tenant.schoolId,
-          filters.month,
-          classroomId
-        );
-        birthdays.push(...results);
-      }
-    } else {
-      birthdays = await profilesRepo.findStudentBirthdaysInMonth(
-        db,
-        tenant.schoolId,
-        filters.month,
-        classroomIds?.[0]
-      );
-    }
-  } else if (filters.today) {
-    const today = getTodayMMDD();
-    
-    if (tenant.role === 'teacher' && classroomIds && classroomIds.length > 1 && !filters.classroomId) {
-      birthdays = [];
-      for (const classroomId of classroomIds) {
-        const results = await profilesRepo.findStudentBirthdays(
-          db,
-          tenant.schoolId,
-          today,
-          classroomId
-        );
-        birthdays.push(...results);
-      }
-    } else {
-      birthdays = await profilesRepo.findStudentBirthdays(
-        db,
-        tenant.schoolId,
-        today,
-        classroomIds?.[0]
-      );
-    }
-  } else if (filters.thisWeek) {
-    // Get all birthdays and filter in memory
-    if (tenant.role === 'teacher' && classroomIds && classroomIds.length > 1 && !filters.classroomId) {
-      birthdays = [];
-      for (const classroomId of classroomIds) {
-        const results = await profilesRepo.findStudentBirthdays(
-          db,
-          tenant.schoolId,
-          undefined,
-          classroomId
-        );
-        birthdays.push(...results);
-      }
-    } else {
-      birthdays = await profilesRepo.findStudentBirthdays(
-        db,
-        tenant.schoolId,
-        undefined,
-        classroomIds?.[0]
-      );
-    }
+  // Add date filters
+  if (filters.today) {
+    queryParams.dobMd = getTodayMMDD();
+  } else if (filters.month !== undefined) {
+    queryParams.month = filters.month;
+  }
+
+  // Execute query once with all filters
+  let birthdays = await profilesRepo.findStudentBirthdaysWithFilters(db, queryParams);
+
+  // Apply in-memory filters if needed
+  if (filters.thisWeek) {
     birthdays = filterBirthdaysThisWeek(birthdays);
-  } else {
-    // Return all birthdays (for principal or single classroom for teacher)
-    if (tenant.role === 'teacher' && classroomIds && classroomIds.length > 1 && !filters.classroomId) {
-      birthdays = [];
-      for (const classroomId of classroomIds) {
-        const results = await profilesRepo.findStudentBirthdays(
-          db,
-          tenant.schoolId,
-          undefined,
-          classroomId
-        );
-        birthdays.push(...results);
-      }
-    } else {
-      birthdays = await profilesRepo.findStudentBirthdays(
-        db,
-        tenant.schoolId,
-        undefined,
-        classroomIds?.[0]
-      );
-    }
   }
 
-  // For student birthdays, we DO NOT include full_dob in the response
-  // Only day and month (dob_md) is exposed
+  // Audit log - track birthday access for compliance (FERPA/GDPR)
+  try {
+    await logAudit(db, tenant, 'student_birthdays_viewed', 'student_profile', null, {
+      count: birthdays.length,
+      filters: {
+        classroomId: filters.classroomId,
+        month: filters.month,
+        today: filters.today,
+        thisWeek: filters.thisWeek,
+      },
+      classroomIds: classroomIds,
+    }, null);
+  } catch (auditError) {
+    // Don't fail the request if audit logging fails
+    console.error('Failed to log birthday view audit:', auditError);
+  }
+
   return birthdays;
 }
 
@@ -403,26 +354,5 @@ export async function getStudentBirthdays(
  * =====================================================================
  */
 
-function getTodayMMDD(): string {
-  const now = new Date();
-  const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
-  const day = now.getUTCDate().toString().padStart(2, '0');
-  return `${month}-${day}`;
-}
-
-function filterBirthdaysThisWeek<T extends { dob_md: string }>(birthdays: T[]): T[] {
-  const today = new Date();
-  const todayMMDD = getTodayMMDD();
-  
-  // Get dates for the next 7 days
-  const weekMMDDs = new Set<string>();
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(today);
-    date.setUTCDate(today.getUTCDate() + i);
-    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-    const day = date.getUTCDate().toString().padStart(2, '0');
-    weekMMDDs.add(`${month}-${day}`);
-  }
-
-  return birthdays.filter(b => weekMMDDs.has(b.dob_md));
-}
+// Helper functions moved to birthday-utils.ts for better testing and reusability
+// getTodayMMDD and filterBirthdaysThisWeek are now imported from birthday-utils

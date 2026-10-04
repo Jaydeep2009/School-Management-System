@@ -75,6 +75,7 @@ export async function findAllWithRelations(
   let query = `SELECT 
                 c.id, c.school_id, c.academic_year_id, c.classroom_code, c.grade_name, c.division_name,
                 c.grade_level, c.class_teacher_id, c.status, c.created_at, c.updated_at,
+                c.grade_name || ' ' || c.division_name as name,
                 ay.label as academic_year_label,
                 t.first_name || ' ' || t.last_name as class_teacher_name
                FROM classrooms c

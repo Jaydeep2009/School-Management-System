@@ -1,10 +1,11 @@
 /**
  * Academic Year Context
  * 
- * Provides global academic year selection across the application
- * - Persists selection in localStorage
- * - Automatically loads current year on mount
- * - Filters all school data by selected academic year
+ * Manages academic year selection across the application
+ * - Always defaults to the current/active academic year
+ * - Allows switching to historical years for reports
+ * - Does NOT persist selection (always starts with current year)
+ * - Waits for authentication before loading
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -20,15 +21,15 @@ interface AcademicYear {
 
 interface AcademicYearContextType {
   selectedYear: AcademicYear | null;
+  currentYear: AcademicYear | null;
   allYears: AcademicYear[];
   isLoading: boolean;
   setSelectedYear: (year: AcademicYear | null) => void;
   refreshYears: () => Promise<void>;
+  resetToCurrentYear: () => void;
 }
 
 const AcademicYearContext = createContext<AcademicYearContextType | undefined>(undefined);
-
-const STORAGE_KEY = 'sms_selected_academic_year';
 
 interface AcademicYearProviderProps {
   children: ReactNode;
@@ -36,71 +37,102 @@ interface AcademicYearProviderProps {
 
 export function AcademicYearProvider({ children }: AcademicYearProviderProps) {
   const [selectedYear, setSelectedYearState] = useState<AcademicYear | null>(null);
+  const [currentYear, setCurrentYear] = useState<AcademicYear | null>(null);
   const [allYears, setAllYears] = useState<AcademicYear[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check if user is authenticated by looking for access token
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('accessToken');
+      setIsAuthenticated(!!token);
+    };
+
+    // Check immediately
+    checkAuth();
+
+    // Also check on storage events (when token is set/removed)
+    window.addEventListener('storage', checkAuth);
+    
+    // Custom event for when auth changes in same tab
+    const handleAuthChange = () => checkAuth();
+    window.addEventListener('auth-change', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+      window.removeEventListener('auth-change', handleAuthChange);
+    };
+  }, []);
 
   // Load academic years from API
   const loadAcademicYears = async () => {
+    // Don't load if not authenticated
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       console.log('[AcademicYear] Loading academic years...');
+      
       const response = await apiService.getAcademicYears();
       const years = response.data || [];
       console.log('[AcademicYear] Loaded years:', years);
-      setAllYears(years);
-
-      // Try to restore selected year from localStorage
-      const storedYearId = localStorage.getItem(STORAGE_KEY);
-      let yearToSelect: AcademicYear | null = null;
-
-      if (storedYearId) {
-        // Find the stored year
-        yearToSelect = years.find((y: AcademicYear) => y.id === storedYearId) || null;
-        console.log('[AcademicYear] Restored from localStorage:', yearToSelect?.label);
-      }
-
-      // If no stored year or stored year not found, use active/current year
-      if (!yearToSelect) {
-        yearToSelect = years.find((y: AcademicYear) => y.status === 'active' || y.status === 'current') || null;
-        console.log('[AcademicYear] Using active year:', yearToSelect?.label);
-      }
-
-      // If still no year, use the first year
-      if (!yearToSelect && years.length > 0) {
-        yearToSelect = years[0];
-        console.log('[AcademicYear] Using first year:', yearToSelect?.label);
-      }
-
-      setSelectedYearState(yearToSelect);
-      console.log('[AcademicYear] Selected year:', yearToSelect);
       
-      // Save to localStorage
-      if (yearToSelect) {
-        localStorage.setItem(STORAGE_KEY, yearToSelect.id);
-      }
+      // Sort years by start date (most recent first)
+      const sortedYears = years.sort((a: AcademicYear, b: AcademicYear) => {
+        return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+      });
+      
+      setAllYears(sortedYears);
+
+      // Find the current/active academic year (this is the default)
+      const current = sortedYears.find((y: AcademicYear) => 
+        y.status === 'current' || y.status === 'active'
+      );
+      
+      // If no current year, use the most recent year
+      const defaultYear = current || sortedYears[0] || null;
+      
+      console.log('[AcademicYear] Current year:', defaultYear?.label);
+      setCurrentYear(defaultYear);
+      setSelectedYearState(defaultYear);
+      
     } catch (error) {
       console.error('[AcademicYear] Failed to load academic years:', error);
       setAllYears([]);
       setSelectedYearState(null);
+      setCurrentYear(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load years on mount
+  // Load years when authenticated
   useEffect(() => {
-    loadAcademicYears();
-  }, []);
+    if (isAuthenticated) {
+      loadAcademicYears();
+    } else {
+      // Clear data when not authenticated
+      setAllYears([]);
+      setSelectedYearState(null);
+      setCurrentYear(null);
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
-  // Update selected year and persist to localStorage
+  // Update selected year (no localStorage persistence)
   const setSelectedYear = (year: AcademicYear | null) => {
     console.log('[AcademicYear] Changing year to:', year?.label);
     setSelectedYearState(year);
-    if (year) {
-      localStorage.setItem(STORAGE_KEY, year.id);
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+  };
+
+  // Reset to current year
+  const resetToCurrentYear = () => {
+    console.log('[AcademicYear] Resetting to current year');
+    setSelectedYearState(currentYear);
   };
 
   // Refresh academic years list
@@ -112,10 +144,12 @@ export function AcademicYearProvider({ children }: AcademicYearProviderProps) {
     <AcademicYearContext.Provider
       value={{
         selectedYear,
+        currentYear,
         allYears,
         isLoading,
         setSelectedYear,
         refreshYears,
+        resetToCurrentYear,
       }}
     >
       {children}
@@ -127,7 +161,7 @@ export function AcademicYearProvider({ children }: AcademicYearProviderProps) {
  * Hook to use academic year context
  * 
  * @example
- * const { selectedYear, setSelectedYear, allYears } = useAcademicYear();
+ * const { selectedYear, currentYear, setSelectedYear, allYears } = useAcademicYear();
  */
 export function useAcademicYear() {
   const context = useContext(AcademicYearContext);

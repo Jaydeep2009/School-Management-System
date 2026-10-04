@@ -32,9 +32,9 @@ export function QuickActions() {
     },
     {
       icon: BookOpen,
-      label: 'Create Class',
+      label: 'Manage Structure',
       color: '#059669',
-      path: '/academic-structure/classes/new',
+      path: '/academic-structure',
     },
     {
       icon: FileText,
@@ -50,9 +50,9 @@ export function QuickActions() {
     },
     {
       icon: TrendingUp,
-      label: 'Run Promotion',
+      label: 'View Promotions',
       color: '#0891b2',
-      path: '/promotions/new',
+      path: '/promotions',
     },
   ];
 

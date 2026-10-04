@@ -183,7 +183,7 @@ export async function create(
     .run();
 
   return {
-    id: data.id,
+    id: data.user_id, // id is same as user_id (no separate id column in DB)
     user_id: data.user_id,
     school_id: data.school_id,
     employee_code: data.employee_code,
@@ -327,13 +327,13 @@ export async function findByIdWithUser(
   const result = await db
     .prepare(
       `SELECT 
-        tp.user_id as profile_id,
         tp.user_id,
         tp.school_id,
         tp.employee_code,
         tp.first_name,
         tp.middle_name,
         tp.last_name,
+        (tp.first_name || COALESCE(' ' || tp.middle_name, '') || ' ' || tp.last_name) as full_name,
         tp.phone,
         tp.date_of_birth,
         tp.dob_md,
@@ -361,13 +361,14 @@ export async function findByIdWithUser(
 
   return {
     profile: {
-      id: result.profile_id,
+      id: result.user_id, // id is same as user_id (teacher_profiles has no id column)
       user_id: result.user_id,
       school_id: result.school_id,
       employee_code: result.employee_code,
       first_name: result.first_name,
       middle_name: result.middle_name,
       last_name: result.last_name,
+      full_name: result.full_name,
       phone: result.phone,
       date_of_birth: result.date_of_birth,
       dob_md: result.dob_md,

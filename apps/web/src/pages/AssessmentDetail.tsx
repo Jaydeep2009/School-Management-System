@@ -215,32 +215,48 @@ export function AssessmentDetail() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <Button variant="secondary" onClick={() => navigate(`/marks/${id}/edit`)}>
-              <Edit size={16} style={{ marginRight: '8px' }} />
-              Edit
-            </Button>
-            {!isLocked && (
-              <Button onClick={handleSave} disabled={isSaving}>
-                <Save size={16} style={{ marginRight: '8px' }} />
-                {isSaving ? 'Saving...' : 'Save Marks'}
-              </Button>
+            {/* Only teachers can edit assessments and marks */}
+            {user?.role === 'teacher' && (
+              <>
+                <Button variant="secondary" onClick={() => navigate(`/marks/${id}/edit`)}>
+                  <Edit size={16} style={{ marginRight: '8px' }} />
+                  Edit
+                </Button>
+                {!isLocked && (
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    <Save size={16} style={{ marginRight: '8px' }} />
+                    {isSaving ? 'Saving...' : 'Save Marks'}
+                  </Button>
+                )}
+                {!isPublished && (
+                  <Button onClick={handlePublish} disabled={isActionLoading}>
+                    <CheckCircle size={16} style={{ marginRight: '8px' }} />
+                    Publish
+                  </Button>
+                )}
+                {!isLocked ? (
+                  <Button variant="secondary" onClick={handleLock} disabled={isActionLoading}>
+                    <Lock size={16} style={{ marginRight: '8px' }} />
+                    Lock
+                  </Button>
+                ) : (
+                  <Button variant="secondary" onClick={handleUnlock} disabled={isActionLoading}>
+                    <Unlock size={16} style={{ marginRight: '8px' }} />
+                    Unlock
+                  </Button>
+                )}
+              </>
             )}
-            {!isPublished && (
-              <Button onClick={handlePublish} disabled={isActionLoading}>
-                <CheckCircle size={16} style={{ marginRight: '8px' }} />
-                Publish
-              </Button>
-            )}
-            {!isLocked ? (
-              <Button variant="secondary" onClick={handleLock} disabled={isActionLoading}>
-                <Lock size={16} style={{ marginRight: '8px' }} />
-                Lock
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={handleUnlock} disabled={isActionLoading}>
-                <Unlock size={16} style={{ marginRight: '8px' }} />
-                Unlock
-              </Button>
+            {user?.role === 'principal' && (
+              <span style={{ 
+                padding: '8px 16px', 
+                background: '#f1f5f9', 
+                color: '#64748b', 
+                borderRadius: '8px',
+                fontSize: '14px'
+              }}>
+                View-only mode
+              </span>
             )}
           </div>
         </div>
@@ -320,7 +336,7 @@ export function AssessmentDetail() {
                           <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
                             <button
                               onClick={() => updateMarkEntry(entry.student_id, { status: 'graded', marks_obtained: 0 })}
-                              disabled={isLocked}
+                              disabled={isLocked || user?.role === 'principal'}
                               style={{
                                 padding: '6px 12px',
                                 border: entry.status === 'graded' ? '2px solid #16a34a' : '1px solid #e2e8f0',
@@ -329,14 +345,14 @@ export function AssessmentDetail() {
                                 borderRadius: '4px',
                                 fontSize: '12px',
                                 fontWeight: 500,
-                                cursor: isLocked ? 'not-allowed' : 'pointer',
+                                cursor: (isLocked || user?.role === 'principal') ? 'not-allowed' : 'pointer',
                               }}
                             >
                               Grade
                             </button>
                             <button
                               onClick={() => updateMarkEntry(entry.student_id, { status: 'absent', marks_obtained: null })}
-                              disabled={isLocked}
+                              disabled={isLocked || user?.role === 'principal'}
                               style={{
                                 padding: '6px 12px',
                                 border: entry.status === 'absent' ? '2px solid #dc2626' : '1px solid #e2e8f0',
@@ -345,14 +361,14 @@ export function AssessmentDetail() {
                                 borderRadius: '4px',
                                 fontSize: '12px',
                                 fontWeight: 500,
-                                cursor: isLocked ? 'not-allowed' : 'pointer',
+                                cursor: (isLocked || user?.role === 'principal') ? 'not-allowed' : 'pointer',
                               }}
                             >
                               Absent
                             </button>
                             <button
                               onClick={() => updateMarkEntry(entry.student_id, { status: 'exempt', marks_obtained: null })}
-                              disabled={isLocked}
+                              disabled={isLocked || user?.role === 'principal'}
                               style={{
                                 padding: '6px 12px',
                                 border: entry.status === 'exempt' ? '2px solid #6366f1' : '1px solid #e2e8f0',
@@ -361,7 +377,7 @@ export function AssessmentDetail() {
                                 borderRadius: '4px',
                                 fontSize: '12px',
                                 fontWeight: 500,
-                                cursor: isLocked ? 'not-allowed' : 'pointer',
+                                cursor: (isLocked || user?.role === 'principal') ? 'not-allowed' : 'pointer',
                               }}
                             >
                               Exempt
@@ -379,7 +395,7 @@ export function AssessmentDetail() {
                                 const value = e.target.value === '' ? null : Math.min(assessment.max_marks, Math.max(0, parseFloat(e.target.value) || 0));
                                 updateMarkEntry(entry.student_id, { marks_obtained: value });
                               }}
-                              disabled={isLocked}
+                              disabled={isLocked || user?.role === 'principal'}
                               style={{
                                 width: '80px',
                                 padding: '6px',

@@ -20,6 +20,7 @@
 import { Hono } from 'hono';
 import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as timetableService from './timetable.service';
+import * as timetableUploadService from './timetable-upload.service';
 import { TimetableError } from './timetable.errors';
 import {
   createTimetableSchema,
@@ -29,6 +30,94 @@ import {
 import { z } from 'zod';
 
 const timetable = new Hono<AuthContext>();
+
+/**
+ * POST /timetables/upload
+ * Upload timetable from Excel/CSV
+ * Authorization: Principal only
+ */
+timetable.post('/upload', requireAuth, async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    
+    // Parse multipart form data
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    const classroomId = formData.get('classroom_id') as string;
+    const academicYearId = formData.get('academic_year_id') as string;
+
+    console.log('[Upload] Received:', {
+      hasFile: !!file,
+      fileType: file instanceof File ? file.type : 'not a file',
+      fileName: file instanceof File ? file.name : 'N/A',
+      classroomId,
+      academicYearId,
+      tenant: tenant.schoolId
+    });
+
+    if (!file || !(file instanceof File)) {
+      console.error('[Upload] File validation failed:', { file });
+      return c.json({ error: 'File is required' }, 400);
+    }
+
+    if (!classroomId) {
+      console.error('[Upload] Classroom ID missing');
+      return c.json({ error: 'Classroom ID is required' }, 400);
+    }
+
+    if (!academicYearId) {
+      console.error('[Upload] Academic Year ID missing');
+      return c.json({ error: 'Academic Year ID is required' }, 400);
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+      'application/csv'
+    ];
+    const fileName = file.name.toLowerCase();
+    const isValidType = allowedTypes.includes(file.type) || 
+                       fileName.endsWith('.xlsx') || 
+                       fileName.endsWith('.xls') || 
+                       fileName.endsWith('.csv');
+    
+    if (!isValidType) {
+      console.error('[Upload] Invalid file type:', { type: file.type, name: file.name });
+      return c.json({ error: 'Invalid file type. Allowed: Excel (.xlsx, .xls) or CSV (.csv)' }, 400);
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      console.error('[Upload] File too large:', file.size);
+      return c.json({ error: 'File too large. Maximum size: 10MB' }, 400);
+    }
+
+    console.log('[Upload] Starting upload process...');
+    const result = await timetableUploadService.uploadTimetableFromFile(
+      c.env.DB,
+      file,
+      classroomId,
+      academicYearId,
+      tenant
+    );
+
+    console.log('[Upload] Success:', result.id);
+    return c.json({ data: result }, 201);
+  } catch (error) {
+    console.error('[Upload] Error caught:', error);
+    if (error instanceof TimetableError) {
+      console.error('[Upload] TimetableError:', error.message, error.code);
+      return c.json({ error: error.message }, error.statusCode as any);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to upload timetable';
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error('[Upload] Unhandled error:', { message, stack });
+    return c.json({ error: message }, 500);
+  }
+});
 
 /**
  * POST /timetables

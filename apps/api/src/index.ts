@@ -19,6 +19,7 @@ import feesRoutes from './fees/fees.routes';
 import promotionRoutes from './promotion/promotion.routes';
 import profilesRoutes from './profiles/profiles.routes';
 import timetableRoutes from './timetable/timetable.routes';
+import periodTimingRoutes from './timetable/period-timing.routes';
 import importsRoutes from './imports/imports.routes';
 import schoolsRoutes from './schools/schools.routes';
 import * as cronHandlers from './cron/handlers';
@@ -45,18 +46,19 @@ app.route('/subjects', subjectRoutes);
 app.route('/teaching-assignments', teachingAssignmentRoutes);
 app.route('/enrollments', enrollmentRoutes);
 app.route('/teachers', teacherRoutes);
-app.route('/teachers', profilesRoutes); // Profile operations
+app.route('/teachers', profilesRoutes); // Profile operations (GET /teachers/:userId)
 app.route('/students', studentRoutes);
 app.route('/students/me', studentMeRoutes); // Student self-service routes
-app.route('/students', profilesRoutes); // Profile operations
+app.route('/students', profilesRoutes); // Profile operations (GET /students/:userId)
+app.route('/profiles', profilesRoutes); // Birthday operations (GET /profiles/birthdays/*)
 app.route('/attendance', attendanceRoutes);
 app.route('/marks', marksRoutes);
 app.route('/assignments', assignmentsRoutes);
 app.route('/fees', feesRoutes);
 app.route('/promotions', promotionRoutes);
 app.route('/timetables', timetableRoutes);
+app.route('/period-timings', periodTimingRoutes);
 app.route('/imports', importsRoutes);
-app.route('/birthdays', profilesRoutes); // Birthday operations
 app.route('/me', meRoutes);
 
 // Default route
@@ -83,39 +85,11 @@ app.onError((err, c) => {
  * Cloudflare Workers cron triggers call this function
  */
 export const scheduled: ExportedHandlerScheduledHandler<Env> = async (event, env, ctx) => {
-  const cronTime = new Date(event.scheduledTime);
-  const hour = cronTime.getUTCHours();
-
-  console.log(`[CRON] Triggered at ${cronTime.toISOString()} (UTC hour: ${hour})`);
-
+  const { handleCron } = await import('./cron');
+  
   try {
-    // Route to appropriate handler based on UTC hour
-    switch (hour) {
-      case 1:
-        // 1:00 AM UTC - Attendance statistics
-        await cronHandlers.attendanceStatsCron(env.DB, env);
-        break;
-
-      case 2:
-        // 2:00 AM UTC - Marks statistics
-        await cronHandlers.marksStatsCron(env.DB, env);
-        break;
-
-      case 6:
-        // 6:00 AM UTC - Birthday digest
-        await cronHandlers.birthdayDigestCron(env.DB, env);
-        break;
-
-      case 8:
-        // 8:00 AM UTC - Fee reminders
-        await cronHandlers.feeRemindersCron(env.DB, env);
-        break;
-
-      default:
-        console.log(`[CRON] No handler for UTC hour ${hour}`);
-    }
-
-    console.log('[CRON] Job completed successfully');
+    // Cast event to any to avoid type mismatch - Cloudflare types are correct at runtime
+    await handleCron(event as any, env, ctx);
   } catch (error) {
     console.error('[CRON] Job failed:', error);
     // Don't throw - let the cron continue on next schedule

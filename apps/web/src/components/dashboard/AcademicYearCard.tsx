@@ -66,7 +66,7 @@ export function AcademicYearCard({
           title="No academic year"
           description="No current academic year set"
           action={
-            <Button onClick={() => navigate('/academic-years/new')} size="small">
+            <Button onClick={() => navigate('/academic-structure')} size="small">
               Create Academic Year
             </Button>
           }
@@ -142,9 +142,9 @@ export function AcademicYearCard({
         <Button 
           variant="secondary" 
           fullWidth 
-          onClick={() => navigate('/academic-years')}
+          onClick={() => navigate('/academic-structure')}
         >
-          View Academic Years
+          Manage Academic Years
         </Button>
       </div>
     </Card>

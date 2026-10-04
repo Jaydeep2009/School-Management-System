@@ -12,6 +12,7 @@ import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
+import { useIsClassTeacher } from '../hooks/useIsClassTeacher';
 import { apiService } from '../services/api';
 import { Users, Search, Eye } from 'lucide-react';
 
@@ -28,6 +29,7 @@ interface Student {
 export function TeacherStudents() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { isClassTeacher } = useIsClassTeacher();
   
   const [students, setStudents] = useState<Student[]>([]);
   const [myClassrooms, setMyClassrooms] = useState<any[]>([]);
@@ -35,7 +37,6 @@ export function TeacherStudents() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isClassTeacher, setIsClassTeacher] = useState(false);
 
   useEffect(() => {
     // Only load data when user is available
@@ -100,7 +101,7 @@ export function TeacherStudents() {
       // Set class teacher flag
       const hasClassTeacherRole = classTeacherClassrooms.length > 0 || 
                                   assignments.some((a: any) => a.is_class_teacher);
-      setIsClassTeacher(hasClassTeacherRole);
+      // isClassTeacher is now from the hook
       console.log('Is class teacher:', hasClassTeacherRole);
       
       // Combine classrooms from both sources

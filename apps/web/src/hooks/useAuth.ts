@@ -44,6 +44,7 @@ export function useAuth() {
       
       if (!accessToken) {
         setState({ user: null, isLoading: false, error: null });
+        window.dispatchEvent(new Event('auth-change'));
         return;
       }
 
@@ -63,12 +64,14 @@ export function useAuth() {
       };
 
       setState({ user, isLoading: false, error: null });
+      window.dispatchEvent(new Event('auth-change'));
     } catch (error) {
       // Token invalid or expired, clear it
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       apiService.setAccessToken(null);
       setState({ user: null, isLoading: false, error: null });
+      window.dispatchEvent(new Event('auth-change'));
     }
   };
 
@@ -93,6 +96,9 @@ export function useAuth() {
       };
 
       setState({ user, isLoading: false, error: null });
+
+      // Dispatch auth change event for contexts
+      window.dispatchEvent(new Event('auth-change'));
 
       // Navigate based on role
       switch (response.user.role) {
@@ -123,6 +129,10 @@ export function useAuth() {
       console.error('Logout error:', error);
     } finally {
       setState({ user: null, isLoading: false, error: null });
+      
+      // Dispatch auth change event for contexts
+      window.dispatchEvent(new Event('auth-change'));
+      
       navigate('/login');
     }
   }, [navigate]);

@@ -526,7 +526,6 @@ export async function findByIdWithUser(
   const result = await db
     .prepare(
       `SELECT 
-        sp.user_id as profile_id,
         sp.user_id,
         sp.school_id,
         sp.student_code,
@@ -567,7 +566,7 @@ export async function findByIdWithUser(
 
   return {
     profile: {
-      id: result.profile_id,
+      id: result.user_id, // id is same as user_id (student_profiles has no id column)
       user_id: result.user_id,
       school_id: result.school_id,
       student_code: result.student_code,

@@ -28,11 +28,17 @@ const academicYears = new Hono<AuthContext>();
  * GET /academic-years
  * List all academic years
  * Authorization: Any authenticated user in the school
+ * Caching: 1 hour (data changes infrequently)
  */
 academicYears.get('/', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const years = await academicYearService.list(c.env.DB, tenant.schoolId);
+    
+    // Add cache headers - academic years don't change frequently
+    c.header('Cache-Control', 'public, max-age=3600'); // 1 hour
+    c.header('Vary', 'Authorization'); // Cache per user (school-scoped)
+    
     return c.json({ data: years }, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to list academic years';
@@ -44,6 +50,7 @@ academicYears.get('/', requireAuth, async (c) => {
  * GET /academic-years/current
  * Get current academic year
  * Authorization: Any authenticated user in the school
+ * Caching: 30 minutes (checked frequently but changes rarely)
  */
 academicYears.get('/current', requireAuth, async (c) => {
   try {
@@ -53,6 +60,10 @@ academicYears.get('/current', requireAuth, async (c) => {
     if (!current) {
       return c.json({ error: 'No current academic year found' }, 404);
     }
+    
+    // Cache for shorter time as this is checked frequently
+    c.header('Cache-Control', 'public, max-age=1800'); // 30 minutes
+    c.header('Vary', 'Authorization');
     
     return c.json({ data: current }, 200);
   } catch (error) {

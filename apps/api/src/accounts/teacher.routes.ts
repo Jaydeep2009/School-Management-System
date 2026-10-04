@@ -315,54 +315,67 @@ teachers.get('/:id/assignments', requireAuth, async (c) => {
       return c.json({ error: 'Forbidden' }, 403);
     }
     
-    // Get teaching assignments for the teacher
-    const assignments = await c.env.DB
-      .prepare(`
-        SELECT 
-          ta.id as assignment_id,
-          ta.subject_id,
-          s.subject_name,
-          s.subject_code,
-          ta.classroom_id,
-          c.classroom_code,
-          c.grade_name,
-          c.division_name,
-          (c.grade_name || ' ' || c.division_name) as classroom_name,
-          ta.academic_year_id,
-          ay.label as academic_year
-        FROM teaching_assignments ta
-        INNER JOIN subjects s ON ta.subject_id = s.id
-        INNER JOIN classrooms c ON ta.classroom_id = c.id
-        INNER JOIN academic_years ay ON ta.academic_year_id = ay.id
-        WHERE ta.teacher_id = ?
-          AND ta.school_id = ?
-        ORDER BY ay.start_date DESC, c.grade_level, c.division_name, s.subject_name
-      `)
-      .bind(id, tenant.schoolId)
-      .all();
+    let assignments;
+    let classTeacherOf;
+    
+    try {
+      // Get teaching assignments for the teacher
+      assignments = await c.env.DB
+        .prepare(`
+          SELECT 
+            ta.id as assignment_id,
+            ta.subject_id,
+            s.name as subject_name,
+            s.subject_code,
+            ta.classroom_id,
+            c.classroom_code,
+            c.grade_name,
+            c.division_name,
+            (c.grade_name || ' ' || c.division_name) as classroom_name,
+            c.academic_year_id,
+            ay.label as academic_year
+          FROM teaching_assignments ta
+          INNER JOIN subjects s ON ta.subject_id = s.id
+          INNER JOIN classrooms c ON ta.classroom_id = c.id
+          INNER JOIN academic_years ay ON c.academic_year_id = ay.id
+          WHERE ta.teacher_id = ?
+            AND ta.school_id = ?
+          ORDER BY ay.starts_on DESC, c.grade_level, c.division_name, s.name
+        `)
+        .bind(id, tenant.schoolId)
+        .all();
+    } catch (err) {
+      console.error('[Teacher Assignments] First query error:', err);
+      throw new Error(`Teaching assignments query failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
 
-    // Get classrooms where teacher is class teacher
-    const classTeacherOf = await c.env.DB
-      .prepare(`
-        SELECT 
-          c.id as classroom_id,
-          c.classroom_code,
-          c.grade_name,
-          c.division_name,
-          (c.grade_name || ' ' || c.division_name) as classroom_name,
-          c.academic_year_id,
-          ay.label as academic_year,
-          COUNT(e.id) as student_count
-        FROM classrooms c
-        INNER JOIN academic_years ay ON c.academic_year_id = ay.id
-        LEFT JOIN enrollments e ON c.id = e.classroom_id
-        WHERE c.class_teacher_id = ?
-          AND c.school_id = ?
-        GROUP BY c.id, c.classroom_code, c.grade_name, c.division_name, c.academic_year_id, ay.label
-        ORDER BY ay.start_date DESC, c.grade_level, c.division_name
-      `)
-      .bind(id, tenant.schoolId)
-      .all();
+    try {
+      // Get classrooms where teacher is class teacher
+      classTeacherOf = await c.env.DB
+        .prepare(`
+          SELECT 
+            c.id as classroom_id,
+            c.classroom_code,
+            c.grade_name,
+            c.division_name,
+            (c.grade_name || ' ' || c.division_name) as classroom_name,
+            c.academic_year_id,
+            ay.label as academic_year,
+            COUNT(e.id) as student_count
+          FROM classrooms c
+          INNER JOIN academic_years ay ON c.academic_year_id = ay.id
+          LEFT JOIN enrollments e ON c.id = e.classroom_id AND e.status = 'active'
+          WHERE c.class_teacher_id = ?
+            AND c.school_id = ?
+          GROUP BY c.id, c.classroom_code, c.grade_name, c.division_name, c.academic_year_id, ay.label
+          ORDER BY ay.starts_on DESC, c.grade_level, c.division_name
+        `)
+        .bind(id, tenant.schoolId)
+        .all();
+    } catch (err) {
+      console.error('[Teacher Assignments] Second query error:', err);
+      throw new Error(`Class teacher query failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
 
     return c.json({ 
       data: {
@@ -371,11 +384,19 @@ teachers.get('/:id/assignments', requireAuth, async (c) => {
       }
     }, 200);
   } catch (error) {
+    // Log the full error for debugging
+    console.error('[Teacher Assignments] Error:', error);
+    
     if (error instanceof teacherService.TeacherError) {
       return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
     }
+    
     const message = error instanceof Error ? error.message : 'Failed to get assignments';
-    return c.json({ error: message }, 500);
+    
+    // Return detailed error message
+    return c.json({ 
+      error: message
+    }, 500);
   }
 });
 

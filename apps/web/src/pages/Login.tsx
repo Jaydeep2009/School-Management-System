@@ -160,6 +160,21 @@ export function Login() {
           <p className="login-footer-text" style={{ marginTop: '8px' }}>
             Need help? Contact your school administrator.
           </p>
+          
+          {/* Super Admin Login Button */}
+          <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #e5e7eb' }}>
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => navigate('/super-admin/login')}
+              style={{
+                fontSize: '14px',
+                padding: '8px 16px',
+              }}
+            >
+              🔐 Super Admin Login
+            </Button>
+          </div>
         </div>
       </div>
     </div>

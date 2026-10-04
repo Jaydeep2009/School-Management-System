@@ -119,7 +119,8 @@ export function TimetableForm() {
         navigate(`/timetable/${id}`);
       } else {
         const response = await apiService.createTimetable(submitData);
-        navigate(`/timetable/${response.data.id}`);
+        // Navigate to builder for new timetables
+        navigate(`/timetable/builder/${response.data.id}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save timetable');
@@ -227,7 +228,9 @@ export function TimetableForm() {
                 >
                   <option value="">Select Classroom</option>
                   {filteredClassrooms.map(classroom => (
-                    <option key={classroom.id} value={classroom.id}>{classroom.classroom_name}</option>
+                    <option key={classroom.id} value={classroom.id}>
+                      {classroom.name || classroom.classroom_name || classroom.code || 'Unnamed Classroom'}
+                    </option>
                   ))}
                 </select>
               </div>

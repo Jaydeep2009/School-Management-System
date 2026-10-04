@@ -53,7 +53,9 @@ export async function findAll(
                  ta.updated_at,
                  (tp.first_name || COALESCE(' ' || tp.middle_name, '') || ' ' || tp.last_name) as teacher_name,
                  c.classroom_code || ' - ' || c.grade_name || ' ' || c.division_name as classroom_name,
-                 s.name as subject_name
+                 c.classroom_code,
+                 s.name as subject_name,
+                 CASE WHEN c.class_teacher_id = ta.teacher_id THEN 1 ELSE 0 END as is_class_teacher
                FROM teaching_assignments ta
                LEFT JOIN teacher_profiles tp ON ta.teacher_id = tp.user_id
                LEFT JOIN classrooms c ON ta.classroom_id = c.id

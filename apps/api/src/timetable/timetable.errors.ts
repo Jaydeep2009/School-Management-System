@@ -44,9 +44,9 @@ export class TimetableError extends Error {
     );
   }
 
-  static teacherConflict(teacherCode: string, day: string, period: number): TimetableError {
+  static teacherConflict(day: string, period: number, classroomCode: string, subjectName: string): TimetableError {
     return new TimetableError(
-      `Teacher ${teacherCode} is already teaching another class on ${day} period ${period}`,
+      `Teacher is already teaching ${subjectName} in ${classroomCode} on ${day} Period ${period}`,
       'TIMETABLE_TEACHER_CONFLICT',
       409
     );

@@ -169,7 +169,7 @@ export async function listTimetables(
     bindings.push(status);
   }
 
-  query += ` ORDER BY t.version DESC`;
+  query += ` ORDER BY t.created_at DESC`;
 
   const result = await db
     .prepare(query)
@@ -462,7 +462,7 @@ export async function listTimetableEntries(
            WHEN 6 THEN 'SAT'
            WHEN 7 THEN 'SUN'
          END as day_name,
-         s.code as subject_code,
+         s.subject_code as subject_code,
          s.name as subject_name,
          tp.employee_code as teacher_code,
          tp.first_name || ' ' || tp.last_name as teacher_name
@@ -517,7 +517,7 @@ export async function findTeacherConflicts(
         WHEN 6 THEN 'SAT'
         WHEN 7 THEN 'SUN'
       END as day_name,
-      s.code as subject_code,
+      s.subject_code as subject_code,
       s.name as subject_name,
       tp.employee_code as teacher_code,
       tp.first_name || ' ' || tp.last_name as teacher_name
@@ -567,6 +567,93 @@ export async function checkTeachingAssignment(
          AND school_id = ?`
     )
     .bind(teacherId, subjectId, classroomId, schoolId)
+    .first<{ count: number }>();
+
+  return (result?.count || 0) > 0;
+}
+
+/**
+ * Check for teacher clash (teacher already assigned at same day/period in another timetable)
+ * Returns the conflicting classroom if found, null otherwise
+ */
+export async function checkTeacherClash(
+  db: D1Database,
+  teacherId: string,
+  dayOfWeek: number,
+  periodNo: number,
+  academicYearId: string,
+  schoolId: string,
+  excludeTimetableId?: string
+): Promise<{ classroom_code: string; subject_name: string } | null> {
+  const query = excludeTimetableId
+    ? `SELECT c.classroom_code, s.name as subject_name
+       FROM timetable_entries te
+       INNER JOIN timetables t ON te.timetable_id = t.id
+       INNER JOIN classrooms c ON t.classroom_id = c.id
+       INNER JOIN subjects s ON te.subject_id = s.id
+       WHERE te.teacher_id = ?
+         AND te.day_of_week = ?
+         AND te.period_no = ?
+         AND t.academic_year_id = ?
+         AND t.school_id = ?
+         AND t.status = 'published'
+         AND t.id != ?
+       LIMIT 1`
+    : `SELECT c.classroom_code, s.name as subject_name
+       FROM timetable_entries te
+       INNER JOIN timetables t ON te.timetable_id = t.id
+       INNER JOIN classrooms c ON t.classroom_id = c.id
+       INNER JOIN subjects s ON te.subject_id = s.id
+       WHERE te.teacher_id = ?
+         AND te.day_of_week = ?
+         AND te.period_no = ?
+         AND t.academic_year_id = ?
+         AND t.school_id = ?
+         AND t.status = 'published'
+       LIMIT 1`;
+
+  const bindings = excludeTimetableId
+    ? [teacherId, dayOfWeek, periodNo, academicYearId, schoolId, excludeTimetableId]
+    : [teacherId, dayOfWeek, periodNo, academicYearId, schoolId];
+
+  const result = await db
+    .prepare(query)
+    .bind(...bindings)
+    .first<{ classroom_code: string; subject_name: string }>();
+
+  return result || null;
+}
+
+/**
+ * Check for classroom double-booking (classroom already has an entry at same day/period)
+ */
+export async function checkClassroomClash(
+  db: D1Database,
+  timetableId: string,
+  dayOfWeek: number,
+  periodNo: number,
+  excludeEntryId?: string
+): Promise<boolean> {
+  const query = excludeEntryId
+    ? `SELECT COUNT(*) as count
+       FROM timetable_entries
+       WHERE timetable_id = ?
+         AND day_of_week = ?
+         AND period_no = ?
+         AND id != ?`
+    : `SELECT COUNT(*) as count
+       FROM timetable_entries
+       WHERE timetable_id = ?
+         AND day_of_week = ?
+         AND period_no = ?`;
+
+  const bindings = excludeEntryId
+    ? [timetableId, dayOfWeek, periodNo, excludeEntryId]
+    : [timetableId, dayOfWeek, periodNo];
+
+  const result = await db
+    .prepare(query)
+    .bind(...bindings)
     .first<{ count: number }>();
 
   return (result?.count || 0) > 0;

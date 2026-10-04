@@ -84,12 +84,19 @@ export function Marks() {
             <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
               Marks & Assessments
             </h1>
-            <p style={{ fontSize: '14px', color: '#64748b' }}>Manage assessments and student marks</p>
+            <p style={{ fontSize: '14px', color: '#64748b' }}>
+              {user.role === 'principal' 
+                ? 'View assessments and marks (Read-only)' 
+                : 'Manage assessments and student marks'}
+            </p>
           </div>
-          <Button onClick={() => navigate(getNewAssessmentPath())}>
-            <Plus size={16} style={{ marginRight: '8px' }} />
-            New Assessment
-          </Button>
+          {/* Only teachers can create assessments */}
+          {user.role === 'teacher' && (
+            <Button onClick={() => navigate(getNewAssessmentPath())}>
+              <Plus size={16} style={{ marginRight: '8px' }} />
+              New Assessment
+            </Button>
+          )}
         </div>
 
         <Card>
@@ -100,8 +107,14 @@ export function Marks() {
               <div style={{ textAlign: 'center', padding: '48px 24px' }}>
                 <BarChart3 size={48} style={{ color: '#cbd5e1', marginBottom: '16px' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No assessments</h3>
-                <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>Start by creating your first assessment</p>
-                <Button onClick={() => navigate(getNewAssessmentPath())}>Create Assessment</Button>
+                <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
+                  {user.role === 'principal' 
+                    ? 'No assessments have been created yet' 
+                    : 'Start by creating your first assessment'}
+                </p>
+                {user.role === 'teacher' && (
+                  <Button onClick={() => navigate(getNewAssessmentPath())}>Create Assessment</Button>
+                )}
               </div>
             )}
             {!isLoading && !error && assessments.length > 0 && (

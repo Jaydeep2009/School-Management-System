@@ -31,9 +31,10 @@ interface SuperAdminEnv {
 const SUPER_ADMIN_SUBJECT = 'super-admin';
 
 /**
- * Access token expiry for Super Admin (15 minutes)
+ * Access token expiry for Super Admin
+ * Super admins need longer sessions for administrative work
  */
-const SUPER_ADMIN_TOKEN_EXPIRY = '15m';
+const SUPER_ADMIN_TOKEN_EXPIRY = '4h'; // 4 hours
 
 /**
  * Dummy hash for constant-time comparison when login ID doesn't match

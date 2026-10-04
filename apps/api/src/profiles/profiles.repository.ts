@@ -247,7 +247,7 @@ export async function findCurrentEnrollment(
          ay.label as academic_year_label,
          ay.status as academic_year_status,
          e.classroom_id,
-         c.code as classroom_code,
+         c.classroom_code as classroom_code,
          c.grade_name,
          c.division_name,
          c.grade_level,
@@ -288,7 +288,7 @@ export async function findHistoricalEnrollments(
       `SELECT 
          e.id as enrollment_id,
          ay.label as academic_year_label,
-         c.code as classroom_code,
+         c.classroom_code as classroom_code,
          c.grade_name,
          c.division_name,
          e.roll_number,
@@ -388,7 +388,7 @@ export async function findStudentBirthdays(
       sp.last_name,
       sp.dob_md,
       sp.date_of_birth as full_dob,
-      c.code as classroom_code,
+      c.classroom_code as classroom_code,
       c.grade_name,
       c.division_name
     FROM student_profiles sp
@@ -424,6 +424,74 @@ export async function findStudentBirthdays(
   return result.results || [];
 }
 
+/**
+ * Find student birthdays with flexible filtering
+ * Supports multiple classrooms with IN clause
+ */
+export async function findStudentBirthdaysWithFilters(
+  db: D1Database,
+  params: {
+    schoolId: string;
+    classroomIds?: string[];
+    dobMd?: string;
+    month?: number;
+  }
+): Promise<StudentBirthday[]> {
+  let query = `
+    SELECT 
+      sp.user_id,
+      sp.student_code,
+      sp.first_name,
+      sp.middle_name,
+      sp.last_name,
+      sp.dob_md,
+      sp.date_of_birth as full_dob,
+      c.classroom_code as classroom_code,
+      c.grade_name,
+      c.division_name
+    FROM student_profiles sp
+    JOIN enrollments e ON sp.user_id = e.student_id
+    JOIN academic_years ay ON e.academic_year_id = ay.id
+    JOIN classrooms c ON e.classroom_id = c.id
+    WHERE sp.school_id = ?
+      AND sp.dob_md IS NOT NULL
+      AND sp.status = 'active'
+      AND ay.status = 'current'
+      AND e.status = 'active'
+  `;
+  
+  const bindings: unknown[] = [params.schoolId];
+
+  // Filter by classroom IDs (using IN clause for multiple)
+  if (params.classroomIds && params.classroomIds.length > 0) {
+    const placeholders = params.classroomIds.map(() => '?').join(',');
+    query += ` AND e.classroom_id IN (${placeholders})`;
+    bindings.push(...params.classroomIds);
+  }
+
+  // Filter by exact date (MM-DD)
+  if (params.dobMd) {
+    query += ` AND sp.dob_md = ?`;
+    bindings.push(params.dobMd);
+  }
+
+  // Filter by month
+  if (params.month !== undefined) {
+    const monthStr = params.month.toString().padStart(2, '0');
+    query += ` AND substr(sp.dob_md, 1, 2) = ?`;
+    bindings.push(monthStr);
+  }
+
+  query += ` ORDER BY sp.dob_md, sp.first_name, sp.last_name`;
+
+  const result = await db
+    .prepare(query)
+    .bind(...bindings)
+    .all<StudentBirthday>();
+
+  return result.results || [];
+}
+
 export async function findStudentBirthdaysInMonth(
   db: D1Database,
   schoolId: string,
@@ -442,7 +510,7 @@ export async function findStudentBirthdaysInMonth(
       sp.last_name,
       sp.dob_md,
       sp.date_of_birth as full_dob,
-      c.code as classroom_code,
+      c.classroom_code as classroom_code,
       c.grade_name,
       c.division_name
     FROM student_profiles sp
@@ -492,4 +560,27 @@ export async function findClassTeacherClassrooms(
     .all<{ id: string }>();
 
   return (result.results || []).map(r => r.id);
+}
+
+/**
+ * Find all classrooms for a teacher (from teaching assignments)
+ * 
+ * Used for: Birthday listings, student access
+ * Returns: Unique classroom IDs where teacher has any teaching assignment
+ */
+export async function findTeacherClassrooms(
+  db: D1Database,
+  teacherUserId: string,
+  schoolId: string
+): Promise<string[]> {
+  const result = await db
+    .prepare(
+      `SELECT DISTINCT classroom_id
+       FROM teaching_assignments
+       WHERE school_id = ? AND teacher_id = ?`
+    )
+    .bind(schoolId, teacherUserId)
+    .all<{ classroom_id: string }>();
+
+  return (result.results || []).map(r => r.classroom_id);
 }

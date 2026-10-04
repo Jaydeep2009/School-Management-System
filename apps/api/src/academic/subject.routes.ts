@@ -26,6 +26,7 @@ const subjects = new Hono<AuthContext>();
  * List subjects
  * Authorization: Any authenticated user in the school
  * Optional filters: status
+ * Caching: 1 hour (subjects change infrequently)
  */
 subjects.get('/', requireAuth, async (c) => {
   try {
@@ -36,6 +37,11 @@ subjects.get('/', requireAuth, async (c) => {
     };
     
     const subjectList = await subjectService.list(c.env.DB, tenant.schoolId, filters);
+    
+    // Cache subjects - they don't change frequently
+    c.header('Cache-Control', 'public, max-age=3600'); // 1 hour
+    c.header('Vary', 'Authorization');
+    
     return c.json({ data: subjectList }, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to list subjects';

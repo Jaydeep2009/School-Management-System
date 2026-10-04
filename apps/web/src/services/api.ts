@@ -15,20 +15,99 @@ class ApiError extends Error {
 export class ApiService {
   private baseUrl: string;
   private accessToken: string | null = null;
+  private refreshToken: string | null = null;
+  private isRefreshing: boolean = false;
+  private refreshPromise: Promise<string> | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
     
-    // Initialize access token from localStorage if available
-    // Check both regular and super admin tokens
-    const storedToken = localStorage.getItem('accessToken') || localStorage.getItem('superAdminToken');
-    if (storedToken) {
-      this.accessToken = storedToken;
+    // Initialize tokens from localStorage if available
+    const storedAccessToken = localStorage.getItem('accessToken') || localStorage.getItem('superAdminToken');
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    
+    if (storedAccessToken) {
+      this.accessToken = storedAccessToken;
+    }
+    if (storedRefreshToken) {
+      this.refreshToken = storedRefreshToken;
     }
   }
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
+  }
+
+  setRefreshToken(token: string | null) {
+    this.refreshToken = token;
+  }
+
+  /**
+   * Refresh access token using refresh token
+   */
+  private async refreshAccessToken(): Promise<string> {
+    if (!this.refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    // If already refreshing, return existing promise
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refreshToken: this.refreshToken }),
+        });
+
+        if (!response.ok) {
+          // Refresh failed - clear tokens and redirect to login
+          this.clearTokens();
+          throw new Error('Token refresh failed');
+        }
+
+        const data = await response.json();
+        
+        // Update tokens
+        this.accessToken = data.accessToken;
+        this.refreshToken = data.refreshToken;
+        
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        
+        return data.accessToken;
+      } catch (error) {
+        this.clearTokens();
+        throw error;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  /**
+   * Clear all tokens and redirect to login
+   */
+  private clearTokens() {
+    this.accessToken = null;
+    this.refreshToken = null;
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    
+    // Redirect to login if not already there
+    if (!window.location.pathname.includes('/login')) {
+      window.location.href = '/login';
+    }
   }
 
   private async request<T>(
@@ -49,7 +128,7 @@ export class ApiService {
     }
 
     // Only add Authorization header if we have a token AND it's not a public endpoint
-    const publicEndpoints = ['/auth/login', '/auth/activate', '/auth/super-admin/login'];
+    const publicEndpoints = ['/auth/login', '/auth/activate', '/auth/super-admin/login', '/auth/refresh'];
     const isPublicEndpoint = publicEndpoints.some(ep => endpoint.startsWith(ep));
     
     if (this.accessToken && !isPublicEndpoint) {
@@ -61,33 +140,62 @@ export class ApiService {
       headers,
     });
 
+    // Handle 401 Unauthorized - try to refresh token
+    if (response.status === 401 && !isPublicEndpoint && this.refreshToken) {
+      try {
+        // Try to refresh token
+        const newAccessToken = await this.refreshAccessToken();
+        
+        // Retry original request with new token
+        headers['Authorization'] = `Bearer ${newAccessToken}`;
+        const retryResponse = await fetch(url, {
+          ...options,
+          headers,
+        });
+
+        if (!retryResponse.ok) {
+          const error = await retryResponse.json().catch(() => ({ error: 'Request failed' }));
+          throw new ApiError(retryResponse.status, this.extractErrorMessage(error));
+        }
+
+        return retryResponse.json();
+      } catch (refreshError) {
+        // Refresh failed - user needs to login again
+        this.clearTokens();
+        throw new ApiError(401, 'Session expired. Please login again.');
+      }
+    }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      console.error('API Error Response:', error);
-      let errorMessage = 'Request failed';
-      
-      if (typeof error.error === 'string') {
-        errorMessage = error.error;
-      } else if (typeof error.message === 'string') {
-        errorMessage = error.message;
-      } else if (typeof error.error === 'object') {
-        // Check if it's a Zod validation error
-        if (error.error.issues && Array.isArray(error.error.issues)) {
-          const issues = error.error.issues.map((issue: any) => 
-            `${issue.path.join('.')}: ${issue.message}`
-          ).join(', ');
-          errorMessage = `Validation error: ${issues}`;
-        } else {
-          errorMessage = JSON.stringify(error.error);
-        }
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      throw new ApiError(response.status, errorMessage);
+      throw new ApiError(response.status, this.extractErrorMessage(error));
     }
 
     return response.json();
+  }
+
+  /**
+   * Extract error message from API response
+   */
+  private extractErrorMessage(error: any): string {
+    if (typeof error.error === 'string') {
+      return error.error;
+    } else if (typeof error.message === 'string') {
+      return error.message;
+    } else if (typeof error.error === 'object') {
+      // Check if it's a Zod validation error
+      if (error.error.issues && Array.isArray(error.error.issues)) {
+        const issues = error.error.issues.map((issue: any) => 
+          `${issue.path.join('.')}: ${issue.message}`
+        ).join(', ');
+        return `Validation error: ${issues}`;
+      } else {
+        return JSON.stringify(error.error);
+      }
+    } else if (typeof error === 'string') {
+      return error;
+    }
+    return 'Request failed';
   }
 
   // Health check
@@ -114,6 +222,7 @@ export class ApiService {
 
     // Store tokens
     this.accessToken = response.accessToken;
+    this.refreshToken = response.refreshToken;
     localStorage.setItem('accessToken', response.accessToken);
     localStorage.setItem('refreshToken', response.refreshToken);
 
@@ -127,9 +236,7 @@ export class ApiService {
       });
     } finally {
       // Clear tokens regardless of response
-      this.accessToken = null;
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      this.clearTokens();
     }
   }
 
@@ -151,28 +258,6 @@ export class ApiService {
       schoolId: string;
       sessionId: string;
     }>('/auth/me');
-  }
-
-  async refreshAccessToken() {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const response = await this.request<{
-      accessToken: string;
-      refreshToken: string;
-    }>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    // Update stored tokens
-    this.accessToken = response.accessToken;
-    localStorage.setItem('accessToken', response.accessToken);
-    localStorage.setItem('refreshToken', response.refreshToken);
-
-    return response;
   }
 
   // Dashboard endpoints (to be implemented)
@@ -305,6 +390,10 @@ export class ApiService {
     });
   }
 
+  async getClassroomEnrollments(classroomId: string) {
+    return this.request<{ data: any[] }>(`/classrooms/${classroomId}/enrollments`);
+  }
+
   // Subjects
   async getSubjects(params?: Record<string, any>) {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
@@ -332,6 +421,42 @@ export class ApiService {
   // Academic Years
   async getAcademicYears() {
     return this.request<{ data: any[] }>('/academic-years');
+  }
+
+  // Period Timings
+  async getPeriodTimings(academicYearId: string) {
+    return this.request<{ data: any[] }>(`/period-timings?academic_year_id=${academicYearId}`);
+  }
+
+  async getPeriodTiming(id: string) {
+    return this.request<{ data: any }>(`/period-timings/${id}`);
+  }
+
+  async createPeriodTiming(data: any) {
+    return this.request<{ data: any }>('/period-timings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async initializePeriodTimings(academicYearId: string) {
+    return this.request<{ data: any[] }>('/period-timings/initialize', {
+      method: 'POST',
+      body: JSON.stringify({ academic_year_id: academicYearId }),
+    });
+  }
+
+  async updatePeriodTiming(id: string, data: any) {
+    return this.request<{ data: any }>(`/period-timings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePeriodTiming(id: string) {
+    return this.request<{ success: boolean }>(`/period-timings/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   async getAcademicYear(id: string) {
@@ -796,6 +921,10 @@ export class ApiService {
     return this.request<{ data: any }>(`/timetables/${id}`);
   }
 
+  async getMyTimetable() {
+    return this.request<{ data: { timetable: any | null; entries: any[] } }>('/timetables/me/timetable');
+  }
+
   async createTimetable(data: {
     name: string;
     academic_year_id: string;
@@ -822,6 +951,26 @@ export class ApiService {
 
   async getTimetableEntries(id: string) {
     return this.request<{ data: any[] }>(`/timetables/${id}/entries`);
+  }
+
+  async createTimetableEntry(timetableId: string, entry: any) {
+    return this.request<{ data: any }>(`/timetables/${timetableId}/entries`, {
+      method: 'POST',
+      body: JSON.stringify(entry),
+    });
+  }
+
+  async updateTimetableEntry(timetableId: string, entryId: string, entry: any) {
+    return this.request<{ data: any }>(`/timetables/${timetableId}/entries/${entryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(entry),
+    });
+  }
+
+  async deleteTimetableEntry(timetableId: string, entryId: string) {
+    return this.request<{ success: boolean }>(`/timetables/${timetableId}/entries/${entryId}`, {
+      method: 'DELETE',
+    });
   }
 
   async updateTimetableEntries(id: string, entries: Array<{

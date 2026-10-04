@@ -10,8 +10,9 @@ import type { AccessTokenPayload, UserRole } from './auth.types';
 
 /**
  * Token configuration
+ * SMS systems typically need longer session durations as users work throughout the day
  */
-const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
+const ACCESS_TOKEN_EXPIRY = '8h'; // 8 hours - typical school work day
 const REFRESH_TOKEN_EXPIRY_DAYS = 30; // 30 days
 
 /**

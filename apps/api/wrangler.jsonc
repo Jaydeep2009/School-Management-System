@@ -46,10 +46,9 @@
 	// Cron triggers for scheduled jobs
 	"triggers": {
 		"crons": [
-			"0 1 * * *", // Attendance stats - Daily at 1:00 AM UTC
-			"0 2 * * *", // Marks stats - Daily at 2:00 AM UTC
-			"0 6 * * *", // Birthday digest - Daily at 6:00 AM UTC
-			"0 8 * * *" // Fee reminders - Daily at 8:00 AM UTC
+			"0 2 * * *",      // Daily maintenance - Every day at 2:00 AM UTC
+			"0 */6 * * *",    // Session cleanup - Every 6 hours
+			"*/30 * * * *"    // Quick cleanup - Every 30 minutes
 		]
 	}
 }

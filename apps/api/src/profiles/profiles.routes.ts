@@ -19,7 +19,7 @@ import { Hono } from 'hono';
 import { requireAuth, requireSchoolTenant, type AuthContext } from '../auth/auth.middleware';
 import * as profilesService from './profiles.service';
 import { ProfileError } from './profiles.errors';
-import type { BirthdayFilters } from './profiles.types';
+import type { BirthdayFilters, TeacherBirthday, StudentBirthday } from './profiles.types';
 import {
   updateTeacherProfileSchema,
   updateStudentProfileSchema,
@@ -219,7 +219,7 @@ profiles.put('/students/:userId/profile', requireAuth, async (c) => {
  * GET /birthdays/upcoming
  * Get upcoming birthdays (combined teachers and students)
  * Query params: thisWeek (true/false)
- * Authorization: Principal only
+ * Authorization: Principal (all birthdays), Teacher (student birthdays from their classes)
  */
 profiles.get('/birthdays/upcoming', requireAuth, async (c) => {
   try {
@@ -231,11 +231,23 @@ profiles.get('/birthdays/upcoming', requireAuth, async (c) => {
       thisWeek: thisWeek || undefined,
     };
 
-    // Get both teacher and student birthdays
-    const [teacherBirthdays, studentBirthdays] = await Promise.all([
-      profilesService.getTeacherBirthdays(c.env.DB, filters, tenant),
-      profilesService.getStudentBirthdays(c.env.DB, filters, tenant),
-    ]);
+    // Get teacher and student birthdays based on role
+    let teacherBirthdays: TeacherBirthday[] = [];
+    let studentBirthdays: StudentBirthday[] = [];
+
+    if (tenant.role === 'principal') {
+      // Principals can see both teacher and student birthdays
+      [teacherBirthdays, studentBirthdays] = await Promise.all([
+        profilesService.getTeacherBirthdays(c.env.DB, filters, tenant),
+        profilesService.getStudentBirthdays(c.env.DB, filters, tenant),
+      ]);
+    } else if (tenant.role === 'teacher') {
+      // Teachers can only see student birthdays from their classes
+      studentBirthdays = await profilesService.getStudentBirthdays(c.env.DB, filters, tenant);
+    } else {
+      // Students cannot view birthdays
+      return c.json({ error: 'You do not have permission to view birthdays' }, 403);
+    }
 
     // Helper to calculate days until birthday
     const calculateDaysUntil = (dobMd: string): number => {

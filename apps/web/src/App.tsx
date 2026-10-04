@@ -22,8 +22,7 @@ import { Marks } from './pages/Marks';
 import { AssessmentForm } from './pages/AssessmentForm';
 import { AssessmentDetail } from './pages/AssessmentDetail';
 import { Assignments } from './pages/Assignments';
-import { AssignmentForm } from './pages/AssignmentForm';
-import { AssignmentDetail } from './pages/AssignmentDetail';
+// AssignmentForm and AssignmentDetail removed - principals don't have access to assignments
 import { Fees } from './pages/Fees';
 import { FeeCategoriesList } from './pages/FeeCategoriesList';
 import { FeeCategoryForm } from './pages/FeeCategoryForm';
@@ -32,9 +31,11 @@ import { Promotions } from './pages/Promotions';
 import { PromotionBatchForm } from './pages/PromotionBatchForm';
 import { PromotionBatchDetail } from './pages/PromotionBatchDetail';
 import { Timetable } from './pages/Timetable';
+import { PeriodSetup } from './pages/PeriodSetup';
+import { TimetableUploadSimple } from './pages/TimetableUploadSimple';
 import { TimetableForm } from './pages/TimetableForm';
 import { TimetableDetail } from './pages/TimetableDetail';
-import { TimetableImport } from './pages/TimetableImport';
+import { TimetableView } from './pages/TimetableView';
 import { StudentsImport } from './pages/StudentsImport';
 import { AttendanceImport } from './pages/AttendanceImport';
 import { MarksImport } from './pages/MarksImport';
@@ -43,6 +44,7 @@ import { FeePaymentsImport } from './pages/FeePaymentsImport';
 import { PromotionImport } from './pages/PromotionImport';
 import { Birthdays } from './pages/Birthdays';
 import { TeacherDashboard } from './pages/TeacherDashboard';
+import { TeacherTimetable } from './pages/TeacherTimetable';
 import { TeacherAttendance } from './pages/TeacherAttendance';
 import { TeacherStudentAttendance } from './pages/TeacherStudentAttendance';
 import { TeacherClassOverview } from './pages/TeacherClassOverview';
@@ -50,6 +52,7 @@ import { TeacherStudents } from './pages/TeacherStudents';
 import { ClassroomAttendanceReport } from './pages/ClassroomAttendanceReport';
 import { ClassroomMarksReport } from './pages/ClassroomMarksReport';
 import { StudentDashboard } from './pages/StudentDashboard';
+import { StudentTimetable } from './pages/StudentTimetable';
 import { StudentAttendance } from './pages/StudentAttendance';
 import { StudentMarks } from './pages/StudentMarks';
 import { StudentAssignments } from './pages/StudentAssignments';
@@ -375,46 +378,7 @@ function App() {
           }
         />
         
-        <Route
-          path="/assignments"
-          element={
-            <ProtectedRoute>
-              <RoleRoute allowedRoles="principal">
-                <Assignments />
-              </RoleRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/assignments/new"
-          element={
-            <ProtectedRoute>
-              <RoleRoute allowedRoles="principal">
-                <AssignmentForm />
-              </RoleRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/assignments/:id"
-          element={
-            <ProtectedRoute>
-              <RoleRoute allowedRoles="principal">
-                <AssignmentDetail />
-              </RoleRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/assignments/:id/edit"
-          element={
-            <ProtectedRoute>
-              <RoleRoute allowedRoles="principal">
-                <AssignmentForm />
-              </RoleRoute>
-            </ProtectedRoute>
-          }
-        />
+        {/* Assignments - Removed for Principal, only Teachers and Students */}
         
         <Route
           path="/fees"
@@ -498,11 +462,21 @@ function App() {
           }
         />
         <Route
-          path="/timetable/import"
+          path="/period-setup"
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles="principal">
-                <TimetableImport />
+                <PeriodSetup />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/timetable/upload"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles="principal">
+                <TimetableUploadSimple />
               </RoleRoute>
             </ProtectedRoute>
           }
@@ -513,6 +487,16 @@ function App() {
             <ProtectedRoute>
               <RoleRoute allowedRoles="principal">
                 <TimetableForm />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/timetable/view/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles="principal">
+                <TimetableView />
               </RoleRoute>
             </ProtectedRoute>
           }
@@ -777,7 +761,7 @@ function App() {
           element={
             <ProtectedRoute>
               <RoleRoute allowedRoles="teacher">
-                <Timetable />
+                <TeacherTimetable />
               </RoleRoute>
             </ProtectedRoute>
           }
@@ -840,6 +824,16 @@ function App() {
             <ProtectedRoute>
               <RoleRoute allowedRoles="student">
                 <StudentDashboard />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/timetable"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles="student">
+                <StudentTimetable />
               </RoleRoute>
             </ProtectedRoute>
           }

@@ -30,9 +30,20 @@ interface SidebarProps {
   isCollapsed?: boolean;
   role?: 'principal' | 'teacher' | 'student';
   isClassTeacher?: boolean;
+  isLoadingClassTeacher?: boolean;
+  classTeacherError?: Error | null;
 }
 
-export function Sidebar({ schoolName, principalName, onLogout, isCollapsed, role = 'principal', isClassTeacher = false }: SidebarProps) {
+export function Sidebar({ 
+  schoolName, 
+  principalName, 
+  onLogout, 
+  isCollapsed, 
+  role = 'principal', 
+  isClassTeacher = false,
+  isLoadingClassTeacher = false,
+  classTeacherError: _classTeacherError = null
+}: SidebarProps) {
   // Principal navigation
   const principalNavigationItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -41,7 +52,7 @@ export function Sidebar({ schoolName, principalName, onLogout, isCollapsed, role
     { path: '/academic-structure', icon: BookOpen, label: 'Academic Structure' },
     // Removed: { path: '/attendance', icon: ClipboardCheck, label: 'Attendance' },
     { path: '/marks', icon: BarChart3, label: 'Marks & Assessments' },
-    { path: '/assignments', icon: FileText, label: 'Assignments' },
+    // Assignments removed - only for teachers and students
     { path: '/fees', icon: DollarSign, label: 'Fees' },
     { path: '/timetable', icon: Calendar, label: 'Timetable' },
     { path: '/promotions', icon: TrendingUp, label: 'Promotions' },
@@ -71,18 +82,21 @@ export function Sidebar({ schoolName, principalName, onLogout, isCollapsed, role
     { path: '/student/profile', icon: Users, label: 'My Profile' },
   ];
 
-  // Add Class Overview if teacher is a class teacher
-  if (role === 'teacher' && isClassTeacher) {
-    teacherNavigationItems.push({
-      path: '/teacher/class-overview',
-      icon: Users,
-      label: 'Class Overview',
-    });
-    teacherNavigationItems.push({
-      path: '/birthdays',
-      icon: Cake,
-      label: 'Birthdays',
-    });
+  // Add Class Overview and Birthdays if teacher is a class teacher
+  // Show loading state while checking
+  if (role === 'teacher') {
+    if (!isLoadingClassTeacher && isClassTeacher) {
+      teacherNavigationItems.push({
+        path: '/teacher/class-overview',
+        icon: Users,
+        label: 'Class Overview',
+      });
+      teacherNavigationItems.push({
+        path: '/teacher/birthdays',
+        icon: Cake,
+        label: 'Birthdays',
+      });
+    }
   }
 
   const navigationItems = role === 'student' 
