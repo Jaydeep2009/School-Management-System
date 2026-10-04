@@ -98,6 +98,32 @@ export async function uploadTimetableFromFile(
     tenant
   );
   
+  console.log(`[Upload] Created new timetable: ${timetable.id}`);
+  
+  // Find and unpublish old published timetables for this classroom
+  const oldTimetables = await db
+    .prepare(
+      `SELECT id FROM timetables
+       WHERE classroom_id = ?
+       AND academic_year_id = ?
+       AND school_id = ?
+       AND status = 'published'
+       AND id != ?`
+    )
+    .bind(classroomId, academicYearId, tenant.schoolId, timetable.id)
+    .all<{ id: string }>();
+  
+  if (oldTimetables.results && oldTimetables.results.length > 0) {
+    console.log(`[Upload] Found ${oldTimetables.results.length} old published timetables, archiving them...`);
+    for (const oldTimetable of oldTimetables.results) {
+      await db
+        .prepare(`UPDATE timetables SET status = 'archived', updated_at = unixepoch() WHERE id = ?`)
+        .bind(oldTimetable.id)
+        .run();
+      console.log(`[Upload] Archived old timetable: ${oldTimetable.id}`);
+    }
+  }
+  
   // Parse rows and create entries
   const dayMap: { [key: string]: number } = {
     'monday': 1,
