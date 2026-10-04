@@ -75,6 +75,7 @@ export function Sidebar({
   // Student navigation
   const studentNavigationItems = [
     { path: '/student/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/student/timetable', icon: Calendar, label: 'Timetable' },
     { path: '/student/attendance', icon: ClipboardCheck, label: 'My Attendance' },
     { path: '/student/marks', icon: BarChart3, label: 'My Marks' },
     { path: '/student/assignments', icon: FileText, label: 'Assignments' },
