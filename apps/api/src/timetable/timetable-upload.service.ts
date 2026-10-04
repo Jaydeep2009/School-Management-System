@@ -73,18 +73,102 @@ export async function uploadTimetableFromFile(
     );
   }
   
-  // Extract period columns (skip Day column)
+  // Extract period columns (skip Day column) and detect breaks from headers
   const periodColumns = headers.slice(1).map((h, idx) => {
     const periodNo = idx + 1;
-    const timing = periodTimings.find(t => t.period_no === periodNo);
+    const headerLower = String(h).toLowerCase();
+    
+    // Detect if this column is a break based on header
+    const isBreakColumn = headerLower.includes('break') || headerLower.includes('lunch');
+    
+    let timing = periodTimings.find(t => t.period_no === periodNo);
+    
+    // If timing exists but is_break status doesn't match header, update it
+    if (timing && timing.is_break !== (isBreakColumn ? 1 : 0)) {
+      console.log(`[Upload] Period ${periodNo} is_break mismatch. Header: "${h}", DB is_break: ${timing.is_break}. Will update.`);
+    }
+    
+    // If no timing exists for this period, we'll create it later
+    if (!timing && isBreakColumn) {
+      console.log(`[Upload] Period ${periodNo} is a break ("${h}") but no timing found. Will create.`);
+    }
     
     return {
       name: h,
       index: idx + 1,
       periodNo: periodNo,
-      timing: timing || null
+      timing: timing || null,
+      isBreakFromHeader: isBreakColumn
     };
   });
+  
+  // Update or create period_timings for breaks detected in CSV
+  for (const period of periodColumns) {
+    // Parse timing from header (e.g., "Break (09:30-09:45)" or "Period 1 (08:00-08:45)")
+    const timeMatch = period.name.match(/\((\d{2}:\d{2})-(\d{2}:\d{2})\)/);
+    const startTime = timeMatch ? timeMatch[1] : null;
+    const endTime = timeMatch ? timeMatch[2] : null;
+    
+    // Extract label (everything before the time part)
+    const label = period.name.split('(')[0].trim();
+    
+    if (period.timing) {
+      // Update existing timing if break status or times changed
+      const needsUpdate = 
+        period.timing.is_break !== (period.isBreakFromHeader ? 1 : 0) ||
+        (startTime && period.timing.start_time !== startTime) ||
+        (endTime && period.timing.end_time !== endTime) ||
+        (label && period.timing.label !== label);
+        
+      if (needsUpdate) {
+        await db
+          .prepare(
+            `UPDATE period_timings 
+             SET is_break = ?, start_time = ?, end_time = ?, label = ?, updated_at = unixepoch()
+             WHERE id = ?`
+          )
+          .bind(
+            period.isBreakFromHeader ? 1 : 0,
+            startTime || period.timing.start_time,
+            endTime || period.timing.end_time,
+            label || period.timing.label,
+            period.timing.id
+          )
+          .run();
+        console.log(`[Upload] Updated period_timing for period ${period.periodNo}: is_break=${period.isBreakFromHeader}, label="${label}"`);
+      }
+    } else if (startTime && endTime) {
+      // Create new period_timing
+      const id = crypto.randomUUID();
+      await db
+        .prepare(
+          `INSERT INTO period_timings (id, school_id, academic_year_id, period_no, start_time, end_time, label, is_break, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`
+        )
+        .bind(
+          id,
+          tenant.schoolId,
+          academicYearId,
+          period.periodNo,
+          startTime,
+          endTime,
+          label,
+          period.isBreakFromHeader ? 1 : 0
+        )
+        .run();
+      console.log(`[Upload] Created period_timing for period ${period.periodNo}: "${label}" (${startTime}-${endTime}), is_break=${period.isBreakFromHeader}`);
+      
+      // Update the period column's timing reference
+      period.timing = {
+        id,
+        period_no: period.periodNo,
+        start_time: startTime,
+        end_time: endTime,
+        label,
+        is_break: period.isBreakFromHeader ? 1 : 0
+      };
+    }
+  }
   
   // Create timetable record
   const timetableName = `Timetable - ${new Date().toLocaleDateString()}`;
@@ -171,7 +255,8 @@ export async function uploadTimetableFromFile(
           String(cellValue).trim() === '' || 
           String(cellValue).toLowerCase() === 'free' || 
           String(cellValue).toLowerCase() === 'break' ||
-          period.timing.is_break) {
+          String(cellValue).toLowerCase() === 'lunch' ||
+          (period.timing && period.timing.is_break)) {
         continue;
       }
       
