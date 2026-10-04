@@ -31,6 +31,7 @@ interface TimetableEntry {
 export function TeacherTimetable() {
   const { user, logout } = useAuth();
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
+  const [periodTimings, setPeriodTimings] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedClassroom, setSelectedClassroom] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +53,12 @@ export function TeacherTimetable() {
       setError(null);
       const response = await apiService.getMyTimetable();
       console.log('[TeacherTimetable] API Response:', response);
+      
+      // Load period timings to show breaks
+      if (response.data.timetable?.academic_year_id) {
+        const periodTimingsRes = await apiService.getPeriodTimings(response.data.timetable.academic_year_id);
+        setPeriodTimings(periodTimingsRes.data || []);
+      }
       
       // Extract unique classrooms from entries
       const allEntries = response.data.entries || [];
@@ -88,8 +95,27 @@ export function TeacherTimetable() {
   };
 
   const getPeriodNumbers = () => {
+    // Use period timings if available, otherwise fall back to entries
+    if (periodTimings.length > 0) {
+      return periodTimings
+        .sort((a, b) => a.period_no - b.period_no)
+        .map(pt => ({
+          period_no: pt.period_no,
+          label: pt.label,
+          start_time: pt.start_time,
+          end_time: pt.end_time,
+          is_break: pt.is_break
+        }));
+    }
+    
     const periods = new Set(entries.map(e => e.period_no));
-    return Array.from(periods).sort((a, b) => a - b);
+    return Array.from(periods).sort((a, b) => a - b).map(pn => ({
+      period_no: pn,
+      label: `Period ${pn}`,
+      start_time: '',
+      end_time: '',
+      is_break: false
+    }));
   };
 
   const getEntryForDayAndPeriod = (dayIndex: number, periodNo: number) => {
@@ -249,20 +275,21 @@ export function TeacherTimetable() {
                     }}>
                       Day / Period
                     </th>
-                    {periods.map(periodNo => (
-                      <th key={periodNo} style={{ 
+                    {periods.map(period => (
+                      <th key={period.period_no} style={{ 
                         padding: '12px', 
                         textAlign: 'center', 
                         borderBottom: '2px solid #e2e8f0', 
                         fontSize: '14px', 
                         fontWeight: 600, 
                         color: '#64748b',
-                        minWidth: '150px'
+                        minWidth: '150px',
+                        background: period.is_break ? '#fef3c7' : 'transparent'
                       }}>
-                        Period {periodNo}
-                        {entries.find(e => e.period_no === periodNo)?.start_time && (
+                        {period.label || `Period ${period.period_no}`}
+                        {period.start_time && (
                           <div style={{ fontSize: '12px', fontWeight: 'normal', color: '#94a3b8', marginTop: '4px' }}>
-                            {entries.find(e => e.period_no === periodNo)?.start_time} - {entries.find(e => e.period_no === periodNo)?.end_time}
+                            {period.start_time} - {period.end_time}
                           </div>
                         )}
                       </th>
@@ -284,11 +311,27 @@ export function TeacherTimetable() {
                         }}>
                           {day}
                         </td>
-                        {periods.map(periodNo => {
-                          const entry = getEntryForDayAndPeriod(dayIndex, periodNo);
+                        {periods.map(period => {
+                          const entry = getEntryForDayAndPeriod(dayIndex, period.period_no);
+                          
+                          // If it's a break period, show "Break"
+                          if (period.is_break) {
+                            return (
+                              <td key={period.period_no} style={{ 
+                                padding: '12px', 
+                                textAlign: 'center',
+                                background: '#fef3c7',
+                                color: '#92400e',
+                                fontWeight: 600,
+                                borderBottom: '1px solid #e2e8f0'
+                              }}>
+                                {period.label || 'Break'}
+                              </td>
+                            );
+                          }
                           
                           return (
-                            <td key={`${day}-${periodNo}`} style={{ 
+                            <td key={period.period_no} style={{ 
                               padding: '8px', 
                               borderBottom: '1px solid #e2e8f0',
                               verticalAlign: 'top'
