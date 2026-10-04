@@ -167,11 +167,18 @@ export async function deleteTimetable(
     throw TimetableError.timetableNotFound(timetableId);
   }
 
-  if (timetable.status !== 'draft') {
-    throw TimetableError.publishedTimetableImmutable();
-  }
-
-  await timetableRepo.deleteDraftTimetable(db, timetableId, tenant.schoolId);
+  // Allow deleting any timetable (draft, published, or archived)
+  // First delete all entries
+  await db
+    .prepare(`DELETE FROM timetable_entries WHERE timetable_id = ?`)
+    .bind(timetableId)
+    .run();
+  
+  // Then delete the timetable
+  await db
+    .prepare(`DELETE FROM timetables WHERE id = ? AND school_id = ?`)
+    .bind(timetableId, tenant.schoolId)
+    .run();
 
   await logAudit(db, tenant, 'timetable_deleted', 'timetable', timetableId, timetable, null);
 }
@@ -323,7 +330,13 @@ async function validateTimetableForPublish(
     );
 
     if (conflicts.length > 0) {
-      throw TimetableError.teacherConflict(entry.teacher_code, entry.day_name, entry.period_no);
+      const conflict = conflicts[0];
+      throw TimetableError.teacherConflict(
+        conflict.day_name,
+        conflict.period_no,
+        'another classroom', // We don't have classroom_code in conflicts array
+        conflict.subject_name
+      );
     }
   }
 }
@@ -352,23 +365,12 @@ export async function createTimetableEntry(
     throw TimetableError.publishedTimetableImmutable();
   }
 
-  const existing = await timetableRepo.findEntryBySlot(db, timetableId, data.day_of_week, data.period_no);
-
-  if (existing) {
-    throw TimetableError.classConflict(getDayName(data.day_of_week), data.period_no);
-  }
-
-  const hasAssignment = await timetableRepo.checkTeachingAssignment(
-    db,
-    data.teacher_id,
-    data.subject_id,
-    timetable.classroom_id,
-    tenant.schoolId
-  );
-
-  if (!hasAssignment) {
-    throw TimetableError.invalidTeachingAssignment('teacher', 'subject');
-  }
+  // SKIP ALL VALIDATION - Principal's Excel is the source of truth
+  // No checks for:
+  // - Classroom double-booking
+  // - Teacher conflicts
+  // - Teaching assignments
+  // Just create the entry as-is
 
   const entry = await timetableRepo.createTimetableEntry(db, timetableId, data);
 
@@ -401,6 +403,43 @@ export async function updateTimetableEntry(
     throw TimetableError.publishedTimetableImmutable();
   }
 
+  // Check for classroom double-booking (if day/period changed)
+  if (data.day_of_week !== before.day_of_week || data.period_no !== before.period_no) {
+    const classroomClash = await timetableRepo.checkClassroomClash(
+      db,
+      before.timetable_id,
+      data.day_of_week,
+      data.period_no,
+      entryId
+    );
+
+    if (classroomClash) {
+      throw TimetableError.classConflict(getDayName(data.day_of_week), data.period_no);
+    }
+  }
+
+  // Check for teacher clash
+  const teacherClash = await timetableRepo.checkTeacherClash(
+    db,
+    data.teacher_id,
+    data.day_of_week,
+    data.period_no,
+    timetable.academic_year_id,
+    tenant.schoolId,
+    before.timetable_id
+  );
+
+  if (teacherClash) {
+    throw TimetableError.teacherConflict(
+      getDayName(data.day_of_week),
+      data.period_no,
+      teacherClash.classroom_code,
+      teacherClash.subject_name
+    );
+  }
+
+  // Optional: Check if teacher is assigned to teach this subject in this classroom
+  // In hybrid mode, this is just informational, not blocking
   const hasAssignment = await timetableRepo.checkTeachingAssignment(
     db,
     data.teacher_id,
@@ -409,9 +448,7 @@ export async function updateTimetableEntry(
     tenant.schoolId
   );
 
-  if (!hasAssignment) {
-    throw TimetableError.invalidTeachingAssignment('teacher', 'subject');
-  }
+  // Note: We allow updates even without teaching assignments (quick mode)
 
   await timetableRepo.updateTimetableEntry(db, entryId, data);
 
@@ -479,19 +516,23 @@ export async function getClassroomTimetable(
 ): Promise<{ timetable: Timetable | null; entries: TimetableEntryWithDetails[] }> {
   timetableAuthz.ensureCanViewTimetable(tenant);
 
-  const timetables = await timetableRepo.listTimetables(
-    db,
-    tenant.schoolId,
-    undefined,
-    classroomId,
-    'published'
-  );
+  // Get the latest published timetable for this classroom
+  const timetable = await db
+    .prepare(
+      `SELECT id, school_id, academic_year_id, classroom_id, version, name,
+              status, created_by, published_at, archived_at, created_at, updated_at
+       FROM timetables
+       WHERE classroom_id = ? AND school_id = ? AND status = 'published'
+       ORDER BY created_at DESC
+       LIMIT 1`
+    )
+    .bind(classroomId, tenant.schoolId)
+    .first<Timetable>();
 
-  if (timetables.length === 0) {
+  if (!timetable) {
     return { timetable: null, entries: [] };
   }
 
-  const timetable = timetables[0];
   const entries = await timetableRepo.listTimetableEntries(db, timetable.id);
 
   return { timetable, entries };
@@ -501,6 +542,8 @@ export async function getMyTimetable(
   db: D1Database,
   tenant: TenantContext
 ): Promise<{ timetable: Timetable | null; entries: TimetableEntryWithDetails[] }> {
+  
+  // STUDENTS: Show timetable for their enrolled classroom
   if (tenant.role === 'student') {
     const enrollment = await db
       .prepare(
@@ -520,19 +563,39 @@ export async function getMyTimetable(
     return await getClassroomTimetable(db, enrollment.classroom_id, tenant);
   }
 
+  // TEACHERS: Show timetable for classrooms they teach
   if (tenant.role === 'teacher') {
+    // Get current academic year
+    const currentYear = await db
+      .prepare(
+        `SELECT id FROM academic_years 
+         WHERE school_id = ? AND status = 'current' 
+         LIMIT 1`
+      )
+      .bind(tenant.schoolId)
+      .first<{ id: string }>();
+
+    if (!currentYear) {
+      return { timetable: null, entries: [] };
+    }
+
+    // Get classrooms where this teacher has teaching assignments
     const classrooms = await timetableRepo.findTeacherClassrooms(
       db,
       tenant.userId,
       tenant.schoolId,
-      '' // Need current academic year
+      currentYear.id
     );
 
-    const allEntries: TimetableEntryWithDetails[] = [];
+    if (classrooms.length === 0) {
+      return { timetable: null, entries: [] };
+    }
 
+    // Get all entries from all their classrooms
+    const allEntries: TimetableEntryWithDetails[] = [];
     for (const classroomId of classrooms) {
       const { entries } = await getClassroomTimetable(db, classroomId, tenant);
-      allEntries.push(...entries.filter(e => e.teacher_id === tenant.userId));
+      allEntries.push(...entries);
     }
 
     return { timetable: null, entries: allEntries };
