@@ -15,9 +15,9 @@ const periodTimings = new Hono<{ Bindings: Env }>();
 /**
  * GET /period-timings
  * List period timings for an academic year
- * Authorization: Principal only
+ * Authorization: All authenticated users (students, teachers, principals need to see breaks in timetable)
  */
-periodTimings.get('/', requireAuth, requirePrincipal(), async (c) => {
+periodTimings.get('/', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const academicYearId = c.req.query('academic_year_id');
