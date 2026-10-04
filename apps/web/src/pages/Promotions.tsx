@@ -9,10 +9,12 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
+import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
-import { ArrowUp, Users, GraduationCap, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowUp, GraduationCap, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export function Promotions() {
+  const { logout } = useAuth();
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [selectedCurrentYear, setSelectedCurrentYear] = useState<string>('');
@@ -148,9 +150,11 @@ export function Promotions() {
 
   if (isLoading) {
     return (
-      <Layout role="principal">
+      <Layout role="principal" schoolName="" principalName="" onLogout={logout}>
         <div style={{ padding: '24px' }}>
-          <Skeleton count={5} />
+          <Skeleton />
+          <Skeleton />
+          <Skeleton />
         </div>
       </Layout>
     );
@@ -158,7 +162,7 @@ export function Promotions() {
 
   if (error) {
     return (
-      <Layout role="principal">
+      <Layout role="principal" schoolName="" principalName="" onLogout={logout}>
         <div style={{ padding: '24px' }}>
           <ErrorState message={error} />
         </div>
@@ -178,7 +182,7 @@ export function Promotions() {
   };
 
   return (
-    <Layout role="principal">
+    <Layout role="principal" schoolName="" principalName="" onLogout={logout}>
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
         <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
           <GraduationCap size={32} style={{ color: '#3b82f6' }} />
@@ -277,18 +281,21 @@ export function Promotions() {
 
         {/* Preview */}
         {isLoadingPreview && (
-          <Card style={{ marginTop: '24px' }}>
+          <div style={{ marginTop: '24px' }}>
+            <Card>
             <div style={{ padding: '48px', textAlign: 'center' }}>
               <RefreshCw className="animate-spin" size={48} style={{ color: '#cbd5e1', margin: '0 auto 16px' }} />
               <p style={{ fontSize: '14px', color: '#64748b' }}>Loading students...</p>
             </div>
           </Card>
+          </div>
         )}
 
         {preview && !isLoadingPreview && (
           <>
             {/* Summary */}
-            <Card style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: '24px' }}>
+              <Card>
               <div style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div>
@@ -311,7 +318,7 @@ export function Promotions() {
                     <Button
                       onClick={() => handleBulkAction('retain')}
                       disabled={selectedStudents.size === 0}
-                      variant="outline"
+                      variant="secondary"
                       style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                       <RefreshCw size={16} />
@@ -321,7 +328,7 @@ export function Promotions() {
                       <Button
                         onClick={() => handleBulkAction('graduate')}
                         disabled={selectedStudents.size === 0}
-                        variant="outline"
+                        variant="secondary"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                       >
                         <GraduationCap size={16} />
@@ -346,13 +353,13 @@ export function Promotions() {
                         <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600 }}>
                           Roll No.
                         </th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600 }}>
                           Student Name
                         </th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600 }}>
                           Current Grade
                         </th>
-                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600 }}>
                           Suggested Action
                         </th>
                       </tr>
@@ -389,6 +396,7 @@ export function Promotions() {
                 </div>
               </div>
             </Card>
+            </div>
           </>
         )}
 
@@ -406,10 +414,8 @@ export function Promotions() {
             }}
             onClick={() => setShowConfirmDialog(false)}
           >
-            <Card
-              style={{ maxWidth: '500px', width: '90%' }}
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div style={{ maxWidth: '500px', width: '90%' }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <Card>
               <div style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                   <AlertTriangle size={24} style={{ color: '#f59e0b' }} />
@@ -422,13 +428,14 @@ export function Promotions() {
                   <strong>{selectedStudents.size} student(s)</strong>?
                 </p>
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                  <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+                  <Button variant="secondary" onClick={() => setShowConfirmDialog(false)}>
                     Cancel
                   </Button>
                   <Button onClick={confirmPromotion}>Confirm</Button>
                 </div>
               </div>
             </Card>
+            </div>
           </div>
         )}
       </div>

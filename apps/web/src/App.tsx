@@ -540,26 +540,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/promotions/new"
-          element={
-            <ProtectedRoute>
-              <RoleRoute allowedRoles="principal">
-                <PromotionBatchForm />
-              </RoleRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/promotions/:id"
-          element={
-            <ProtectedRoute>
-              <RoleRoute allowedRoles="principal">
-                <PromotionBatchDetail />
-              </RoleRoute>
-            </ProtectedRoute>
-          }
-        />
         
         <Route
           path="/fees"

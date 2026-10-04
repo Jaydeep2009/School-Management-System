@@ -1579,10 +1579,7 @@ export class ApiService {
       body: JSON.stringify(data),
     });
   }
-}
-
-export const apiService = new ApiService();
-
+  
   // ========================================
   // PROMOTION ENDPOINTS
   // ========================================
@@ -1630,3 +1627,6 @@ export const apiService = new ApiService();
       body: JSON.stringify(data),
     });
   }
+}
+
+export const apiService = new ApiService();
