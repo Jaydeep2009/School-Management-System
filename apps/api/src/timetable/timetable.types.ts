@@ -40,7 +40,8 @@ export interface TimetableEntry {
   day_of_week: DayOfWeek;
   period_no: number;
   subject_id: string;
-  teacher_id: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
   start_time: string | null;
   end_time: string | null;
   room: string | null;
@@ -93,7 +94,8 @@ export interface UpsertTimetableEntryRequest {
   day_of_week: DayOfWeek;
   period_no: number;
   subject_id: string;
-  teacher_id: string;
+  teacher_id?: string | null;
+  teacher_name?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   room?: string | null;

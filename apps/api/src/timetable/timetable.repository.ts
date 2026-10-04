@@ -335,10 +335,10 @@ export async function createTimetableEntry(
   await db
     .prepare(
       `INSERT INTO timetable_entries (
-         id, timetable_id, day_of_week, period_no, subject_id, teacher_id,
+         id, timetable_id, day_of_week, period_no, subject_id, teacher_id, teacher_name,
          start_time, end_time, room, created_at, updated_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -346,7 +346,8 @@ export async function createTimetableEntry(
       data.day_of_week,
       data.period_no,
       data.subject_id,
-      data.teacher_id,
+      data.teacher_id || null,
+      data.teacher_name || null,
       data.start_time || null,
       data.end_time || null,
       data.room || null,
@@ -465,10 +466,10 @@ export async function listTimetableEntries(
          s.subject_code as subject_code,
          s.name as subject_name,
          tp.employee_code as teacher_code,
-         tp.first_name || ' ' || tp.last_name as teacher_name
+         COALESCE(te.teacher_name, tp.first_name || ' ' || tp.last_name) as teacher_name
        FROM timetable_entries te
        JOIN subjects s ON te.subject_id = s.id
-       JOIN teacher_profiles tp ON te.teacher_id = tp.user_id
+       LEFT JOIN teacher_profiles tp ON te.teacher_id = tp.user_id
        WHERE te.timetable_id = ?
        ORDER BY te.day_of_week, te.period_no`
     )
@@ -520,11 +521,11 @@ export async function findTeacherConflicts(
       s.subject_code as subject_code,
       s.name as subject_name,
       tp.employee_code as teacher_code,
-      tp.first_name || ' ' || tp.last_name as teacher_name
+      COALESCE(te.teacher_name, tp.first_name || ' ' || tp.last_name) as teacher_name
     FROM timetable_entries te
     JOIN timetables t ON te.timetable_id = t.id
     JOIN subjects s ON te.subject_id = s.id
-    JOIN teacher_profiles tp ON te.teacher_id = tp.user_id
+    LEFT JOIN teacher_profiles tp ON te.teacher_id = tp.user_id
     WHERE te.teacher_id = ?
       AND te.day_of_week = ?
       AND te.period_no = ?

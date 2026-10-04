@@ -278,10 +278,8 @@ export async function uploadTimetableFromFile(
         // Find or create subject
         const subject = await findOrCreateSubject(db, subjectName, tenant);
         
-        // Find or create teacher
-        const teacher = await findOrCreateTeacher(db, teacherName, tenant);
-        
-        // Create timetable entry with timing info
+        // Store teacher name as text - don't create teacher records
+        // Create timetable entry with timing info and teacher name
         await createTimetableEntry(
           db,
           timetable.id,
@@ -289,7 +287,8 @@ export async function uploadTimetableFromFile(
             day_of_week: dayOfWeek as 1 | 2 | 3 | 4 | 5 | 6 | 7,
             period_no: period.periodNo,
             subject_id: subject.id,
-            teacher_id: teacher.id,
+            teacher_id: null,
+            teacher_name: teacherName,
             start_time: period.timing.start_time,
             end_time: period.timing.end_time
           },
