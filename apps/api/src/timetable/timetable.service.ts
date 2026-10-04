@@ -588,7 +588,7 @@ export async function getMyTimetable(
     );
 
     if (classrooms.length === 0) {
-      return { timetable: null, entries: [] };
+      return { timetable: { academic_year_id: currentYear.id } as any, entries: [] };
     }
 
     // Get all entries from all their classrooms
@@ -598,7 +598,8 @@ export async function getMyTimetable(
       allEntries.push(...entries);
     }
 
-    return { timetable: null, entries: allEntries };
+    // Return academic_year_id for period timings
+    return { timetable: { academic_year_id: currentYear.id } as any, entries: allEntries };
   }
 
   return { timetable: null, entries: [] };
