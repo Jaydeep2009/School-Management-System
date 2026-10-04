@@ -132,7 +132,7 @@ export interface UpdateTeachingAssignmentRequest {
 /**
  * Enrollment
  */
-export type EnrollmentStatus = 'planned' | 'active' | 'completed' | 'left' | 'transferred';
+export type EnrollmentStatus = 'planned' | 'active' | 'completed' | 'left' | 'transferred' | 'graduated' | 'inactive';
 export type EnrollmentOutcome = 'promoted' | 'repeated' | 'dropped' | null;
 
 export interface Enrollment {
