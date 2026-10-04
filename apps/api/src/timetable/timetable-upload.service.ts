@@ -236,8 +236,8 @@ async function findOrCreateSubject(
   name: string,
   tenant: TenantContext
 ): Promise<{ id: string; name: string }> {
-  // Try to find existing subject (case-insensitive)
-  const existing = await db
+  // Try to find existing subject (case-insensitive name match)
+  let existing = await db
     .prepare(
       `SELECT id, name FROM subjects
        WHERE LOWER(name) = LOWER(?)
@@ -251,10 +251,30 @@ async function findOrCreateSubject(
     return existing;
   }
   
+  // Generate subject code
+  const subjectCode = name.substring(0, 10).toUpperCase().replace(/\s/g, '_');
+  
+  // Try to find by subject_code (handles "Math" vs "Mathematics" case)
+  existing = await db
+    .prepare(
+      `SELECT id, name FROM subjects
+       WHERE subject_code = ?
+       AND school_id = ?
+       LIMIT 1`
+    )
+    .bind(subjectCode, tenant.schoolId)
+    .first<{ id: string; name: string }>();
+  
+  if (existing) {
+    console.log(`[Upload] Found existing subject by code: "${name}" -> "${existing.name}" (${subjectCode})`);
+    return existing;
+  }
+  
   // Create new subject
   const { ulid } = await import('ulidx');
   const id = ulid();
-  const subjectCode = name.substring(0, 10).toUpperCase().replace(/\s/g, '_');
+  
+  console.log(`[Upload] Creating new subject: "${name}" with code "${subjectCode}"`);
   
   await db
     .prepare(
