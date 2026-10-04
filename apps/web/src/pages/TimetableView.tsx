@@ -32,6 +32,7 @@ export function TimetableView() {
 
   const [timetable, setTimetable] = useState<any>(null);
   const [entries, setEntries] = useState<TimetableEntry[]>([]);
+  const [periodTimings, setPeriodTimings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -53,6 +54,12 @@ export function TimetableView() {
       // Load timetable entries
       const entriesRes = await apiService.getTimetableEntries(id);
       setEntries(entriesRes.data || []);
+      
+      // Load period timings to show breaks
+      if (timetableRes.data.academic_year_id) {
+        const periodTimingsRes = await apiService.getPeriodTimings(timetableRes.data.academic_year_id);
+        setPeriodTimings(periodTimingsRes.data || []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load timetable');
     } finally {
@@ -123,8 +130,16 @@ export function TimetableView() {
     entriesByDay[entry.day_of_week].push(entry);
   });
 
-  // Get all unique periods
-  const allPeriods = Array.from(new Set(entries.map(e => e.period_no))).sort((a, b) => a - b);
+  // Get all periods from period_timings (including breaks)
+  const allPeriods = periodTimings
+    .sort((a, b) => a.period_no - b.period_no)
+    .map(pt => ({
+      period_no: pt.period_no,
+      label: pt.label,
+      start_time: pt.start_time,
+      end_time: pt.end_time,
+      is_break: pt.is_break
+    }));
 
   return (
     <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
@@ -214,24 +229,21 @@ export function TimetableView() {
                       }}>
                         Day / Period
                       </th>
-                      {allPeriods.map(periodNo => {
-                        // Find an entry for this period to get timing
-                        const sampleEntry = entries.find(e => e.period_no === periodNo);
+                      {allPeriods.map(period => {
                         return (
-                          <th key={periodNo} style={{ 
+                          <th key={period.period_no} style={{ 
                             padding: '12px', 
                             textAlign: 'center', 
                             fontSize: '14px', 
                             fontWeight: 600, 
                             color: '#64748b',
-                            minWidth: '140px'
+                            minWidth: '140px',
+                            background: period.is_break ? '#fef3c7' : '#f8fafc'
                           }}>
-                            <div>Period {periodNo}</div>
-                            {sampleEntry && (
-                              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 400 }}>
-                                {sampleEntry.start_time} - {sampleEntry.end_time}
-                              </div>
-                            )}
+                            <div>{period.label || `Period ${period.period_no}`}</div>
+                            <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 400 }}>
+                              {period.start_time} - {period.end_time}
+                            </div>
                           </th>
                         );
                       })}
@@ -256,16 +268,33 @@ export function TimetableView() {
                           }}>
                             {dayName}
                           </td>
-                          {allPeriods.map(periodNo => {
-                            const entry = dayEntries.find(e => e.period_no === periodNo);
+                          {allPeriods.map(period => {
+                            const entry = dayEntries.find(e => e.period_no === period.period_no);
+                            
+                            // If it's a break period, show "Break"
+                            if (period.is_break) {
+                              return (
+                                <td key={period.period_no} style={{ 
+                                  padding: '12px', 
+                                  textAlign: 'center',
+                                  background: '#fef3c7',
+                                  color: '#92400e',
+                                  fontWeight: 600,
+                                  borderBottom: '1px solid #e2e8f0'
+                                }}>
+                                  {period.label || 'Break'}
+                                </td>
+                              );
+                            }
                             
                             if (!entry) {
                               return (
-                                <td key={periodNo} style={{ 
+                                <td key={period.period_no} style={{ 
                                   padding: '12px', 
                                   textAlign: 'center',
                                   color: '#cbd5e1',
-                                  fontSize: '13px'
+                                  fontSize: '13px',
+                                  borderBottom: '1px solid #e2e8f0'
                                 }}>
                                   Free
                                 </td>
@@ -273,7 +302,7 @@ export function TimetableView() {
                             }
                             
                             return (
-                              <td key={periodNo} style={{ 
+                              <td key={period.period_no} style={{ 
                                 padding: '12px',
                                 background: '#eff6ff',
                                 border: '1px solid #dbeafe'
