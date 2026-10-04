@@ -1582,3 +1582,51 @@ export class ApiService {
 }
 
 export const apiService = new ApiService();
+
+  // ========================================
+  // PROMOTION ENDPOINTS
+  // ========================================
+
+  /**
+   * Get promotion preview for a classroom
+   * GET /promotions/preview/:classroomId
+   */
+  async getPromotionPreview(classroomId: string, academicYearId: string) {
+    return this.request<{ data: any }>(`/promotions/preview/${classroomId}?academic_year_id=${academicYearId}`);
+  }
+
+  /**
+   * Promote single student
+   * POST /promotions/single
+   */
+  async promoteSingleStudent(data: {
+    enrollment_id: string;
+    action: 'promote' | 'retain' | 'graduate' | 'dropout';
+    new_classroom_id?: string;
+    new_academic_year_id: string;
+    remarks?: string;
+  }) {
+    return this.request<{ success: boolean; message: string }>('/promotions/single', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Bulk promote students
+   * POST /promotions/bulk
+   */
+  async bulkPromoteStudents(data: {
+    classroom_id: string;
+    current_academic_year_id: string;
+    new_academic_year_id: string;
+    action: 'promote' | 'retain' | 'graduate' | 'dropout';
+    new_grade?: number;
+    student_ids?: string[];
+    remarks?: string;
+  }) {
+    return this.request<{ success: boolean; data: any; message: string }>('/promotions/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }

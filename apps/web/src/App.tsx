@@ -28,8 +28,6 @@ import { FeeCategoriesList } from './pages/FeeCategoriesList';
 import { FeeCategoryForm } from './pages/FeeCategoryForm';
 import { FeeChargeForm } from './pages/FeeChargeForm';
 import { Promotions } from './pages/Promotions';
-import { PromotionBatchForm } from './pages/PromotionBatchForm';
-import { PromotionBatchDetail } from './pages/PromotionBatchDetail';
 import { Timetable } from './pages/Timetable';
 import { PeriodSetup } from './pages/PeriodSetup';
 import { TimetableUploadSimple } from './pages/TimetableUploadSimple';
