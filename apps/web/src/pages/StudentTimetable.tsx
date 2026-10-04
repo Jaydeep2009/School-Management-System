@@ -67,7 +67,7 @@ export function StudentTimetable() {
 
   if (isLoading) {
     return (
-      <Layout schoolName={'SMS'} principalName={user.loginId || 'Student'} onLogout={logout}>
+      <Layout schoolName={'SMS'} principalName={user.loginId || 'Student'} onLogout={logout} role="student">
         <div style={{ padding: '32px' }}>
           <Skeleton height="600px" />
         </div>
@@ -77,7 +77,7 @@ export function StudentTimetable() {
 
   if (error) {
     return (
-      <Layout schoolName={'SMS'} principalName={user.loginId || 'Student'} onLogout={logout}>
+      <Layout schoolName={'SMS'} principalName={user.loginId || 'Student'} onLogout={logout} role="student">
         <div style={{ padding: '32px' }}>
           <ErrorState message={error} onRetry={loadTimetable} />
         </div>
@@ -91,7 +91,7 @@ export function StudentTimetable() {
   const classroomName = timetableData.entries[0]?.classroom_name || 'Your Class';
 
   return (
-    <Layout schoolName={'SMS'} principalName={user.loginId || 'Student'} onLogout={logout}>
+    <Layout schoolName={'SMS'} principalName={user.loginId || 'Student'} onLogout={logout} role="student">
       <div style={{ padding: '32px' }}>
         <div style={{ marginBottom: '24px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
