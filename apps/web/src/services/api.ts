@@ -1630,3 +1630,12 @@ export class ApiService {
 }
 
 export const apiService = new ApiService();
+
+
+  /**
+   * Export academic year data
+   * GET /academic-years/:id/export
+   */
+  async exportAcademicYearData(academicYearId: string) {
+    return this.request<{ data: any }>(`/academic-years/${academicYearId}/export`);
+  }

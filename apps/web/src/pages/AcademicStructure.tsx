@@ -11,7 +11,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
-import { CalendarDays, BookOpen, FileText, Plus, Users, UserCheck, X } from 'lucide-react';
+import { CalendarDays, BookOpen, FileText, Plus, Users, UserCheck, X, Download } from 'lucide-react';
 import { useAcademicYear } from '../contexts/AcademicYearContext';
 
 export function AcademicStructure() {
@@ -747,19 +747,69 @@ export function AcademicStructure() {
                             </div>
                           )}
                         </div>
-                        {activeTab === 'classrooms' && (
-                          <Button 
-                            variant="secondary" 
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openTeacherAssignmentModal(item);
-                            }}
-                          >
-                            <UserCheck size={14} style={{ marginRight: '6px' }} />
-                            Assign Teachers
-                          </Button>
-                        )}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {activeTab === 'years' && (
+                            <Button
+                              variant="secondary"
+                              size="small"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const result = await apiService.exportAcademicYearData(item.id);
+                                  
+                                  // Convert to Excel using xlsx library
+                                  const XLSX = await import('xlsx');
+                                  const wb = XLSX.utils.book_new();
+                                  
+                                  // Students sheet
+                                  const studentsWs = XLSX.utils.json_to_sheet(result.data.students);
+                                  XLSX.utils.book_append_sheet(wb, studentsWs, 'Students');
+                                  
+                                  // Marks sheet
+                                  if (result.data.marks.length > 0) {
+                                    const marksWs = XLSX.utils.json_to_sheet(result.data.marks);
+                                    XLSX.utils.book_append_sheet(wb, marksWs, 'Marks');
+                                  }
+                                  
+                                  // Attendance sheet
+                                  if (result.data.attendance.length > 0) {
+                                    const attendanceWs = XLSX.utils.json_to_sheet(result.data.attendance);
+                                    XLSX.utils.book_append_sheet(wb, attendanceWs, 'Attendance');
+                                  }
+                                  
+                                  // Fees sheet
+                                  if (result.data.fees.length > 0) {
+                                    const feesWs = XLSX.utils.json_to_sheet(result.data.fees);
+                                    XLSX.utils.book_append_sheet(wb, feesWs, 'Fees');
+                                  }
+                                  
+                                  // Download
+                                  XLSX.writeFile(wb, `${item.label || item.year_label}_data.xlsx`);
+                                  alert('Academic year data exported successfully!');
+                                } catch (err) {
+                                  console.error('Export error:', err);
+                                  alert(err instanceof Error ? err.message : 'Failed to export data');
+                                }
+                              }}
+                            >
+                              <Download size={14} style={{ marginRight: '6px' }} />
+                              Export Data
+                            </Button>
+                          )}
+                          {activeTab === 'classrooms' && (
+                            <Button 
+                              variant="secondary" 
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openTeacherAssignmentModal(item);
+                              }}
+                            >
+                              <UserCheck size={14} style={{ marginRight: '6px' }} />
+                              Assign Teachers
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

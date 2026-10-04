@@ -217,3 +217,42 @@ academicYears.post('/:id/close', requireAuth, requirePrincipal(), async (c) => {
 });
 
 export default academicYears;
+
+/**
+ * GET /academic-years/:id/export
+ * Export academic year data to Excel
+ * Authorization: Principal only
+ */
+academicYears.get('/:id/export', requireAuth, requirePrincipal(), async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    const academicYearId = c.req.param('id')!;
+
+    // Import the export service
+    const exportService = await import('./academic-year-export.service');
+    const data = await exportService.exportAcademicYearData(
+      c.env.DB,
+      academicYearId,
+      tenant
+    );
+
+    await logAudit(
+      c.env.DB,
+      tenant,
+      'academic_year_exported',
+      'academic_year',
+      academicYearId,
+      null,
+      null
+    );
+
+    return c.json({ data }, 200);
+  } catch (error) {
+    if (error instanceof academicYearService.AcademicYearError) {
+      return c.json({ error: error.message }, error.statusCode);
+    }
+    const message =
+      error instanceof Error ? error.message : 'Failed to export academic year data';
+    return c.json({ error: message }, 500);
+  }
+});
