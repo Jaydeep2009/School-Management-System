@@ -34,6 +34,7 @@ export function StudentTimetable() {
     timetable: null, 
     entries: [] 
   });
+  const [periodTimings, setPeriodTimings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +48,12 @@ export function StudentTimetable() {
       setError(null);
       const response = await apiService.getMyTimetable();
       setTimetableData(response.data);
+      
+      // Load period timings to show breaks
+      if (response.data.timetable?.academic_year_id) {
+        const periodTimingsRes = await apiService.getPeriodTimings(response.data.timetable.academic_year_id);
+        setPeriodTimings(periodTimingsRes.data || []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load timetable');
     } finally {
@@ -55,8 +62,27 @@ export function StudentTimetable() {
   };
 
   const getPeriodNumbers = () => {
+    // Use period timings if available, otherwise fall back to entries
+    if (periodTimings.length > 0) {
+      return periodTimings
+        .sort((a, b) => a.period_no - b.period_no)
+        .map(pt => ({
+          period_no: pt.period_no,
+          label: pt.label,
+          start_time: pt.start_time,
+          end_time: pt.end_time,
+          is_break: pt.is_break
+        }));
+    }
+    
     const periods = new Set(timetableData.entries.map(e => e.period_no));
-    return Array.from(periods).sort((a, b) => a - b);
+    return Array.from(periods).sort((a, b) => a - b).map(pn => ({
+      period_no: pn,
+      label: `Period ${pn}`,
+      start_time: '',
+      end_time: '',
+      is_break: false
+    }));
   };
 
   const getEntryForDayAndPeriod = (dayIndex: number, periodNo: number) => {
@@ -168,20 +194,21 @@ export function StudentTimetable() {
                     }}>
                       Day / Period
                     </th>
-                    {periods.map(periodNo => (
-                      <th key={periodNo} style={{ 
+                    {periods.map(period => (
+                      <th key={period.period_no} style={{ 
                         padding: '12px', 
                         textAlign: 'center', 
                         borderBottom: '2px solid #e2e8f0', 
                         fontSize: '14px', 
                         fontWeight: 600, 
                         color: '#64748b',
-                        minWidth: '150px'
+                        minWidth: '150px',
+                        background: period.is_break ? '#fef3c7' : 'transparent'
                       }}>
-                        Period {periodNo}
-                        {timetableData.entries.find(e => e.period_no === periodNo)?.start_time && (
+                        {period.label || `Period ${period.period_no}`}
+                        {period.start_time && (
                           <div style={{ fontSize: '12px', fontWeight: 'normal', color: '#94a3b8', marginTop: '4px' }}>
-                            {timetableData.entries.find(e => e.period_no === periodNo)?.start_time} - {timetableData.entries.find(e => e.period_no === periodNo)?.end_time}
+                            {period.start_time} - {period.end_time}
                           </div>
                         )}
                       </th>
@@ -204,71 +231,87 @@ export function StudentTimetable() {
                         }}>
                           {day}
                         </td>
-                        {periods.map(periodNo => {
-                          const entry = getEntryForDayAndPeriod(dayIndex, periodNo);
-                          
-                          return (
-                            <td key={`${day}-${periodNo}`} style={{ 
-                              padding: '8px', 
-                              borderBottom: '1px solid #e2e8f0',
-                              verticalAlign: 'top'
+                    {periods.map(period => {
+                      const entry = getEntryForDayAndPeriod(dayIndex, period.period_no);
+                      
+                      // If it's a break period, show "Break"
+                      if (period.is_break) {
+                        return (
+                          <td key={period.period_no} style={{ 
+                            padding: '12px', 
+                            textAlign: 'center',
+                            background: '#fef3c7',
+                            color: '#92400e',
+                            fontWeight: 600,
+                            borderBottom: '1px solid #e2e8f0'
+                          }}>
+                            {period.label || 'Break'}
+                          </td>
+                        );
+                      }
+                      
+                      return (
+                        <td key={period.period_no} style={{ 
+                          padding: '8px', 
+                          borderBottom: '1px solid #e2e8f0',
+                          verticalAlign: 'top'
+                        }}>
+                          {entry ? (
+                            <div style={{
+                              padding: '12px',
+                              background: '#f0fdf4',
+                              border: '1px solid #bbf7d0',
+                              borderRadius: '6px',
+                              minHeight: '80px'
                             }}>
-                              {entry ? (
-                                <div style={{
-                                  padding: '12px',
-                                  background: '#f0fdf4',
-                                  border: '1px solid #bbf7d0',
-                                  borderRadius: '6px',
-                                  minHeight: '80px'
-                                }}>
-                                  <div style={{ 
-                                    fontSize: '14px', 
-                                    fontWeight: 600, 
-                                    color: '#15803d',
-                                    marginBottom: '6px'
-                                  }}>
-                                    {entry.subject_name}
-                                  </div>
-                                  <div style={{ 
-                                    fontSize: '13px', 
-                                    color: '#64748b',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    marginBottom: '4px'
-                                  }}>
-                                    <User size={14} />
-                                    {entry.teacher_name}
-                                  </div>
-                                  {entry.start_time && (
-                                    <div style={{ 
-                                      fontSize: '12px', 
-                                      color: '#94a3b8',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px'
-                                    }}>
-                                      <Clock size={12} />
-                                      {entry.start_time} - {entry.end_time}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
+                              <div style={{ 
+                                fontSize: '14px', 
+                                fontWeight: 600, 
+                                color: '#15803d',
+                                marginBottom: '6px'
+                              }}>
+                                {entry.subject_name}
+                              </div>
+                              <div style={{ 
+                                fontSize: '13px', 
+                                color: '#64748b',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                marginBottom: '4px'
+                              }}>
+                                <User size={14} />
+                                {entry.teacher_name}
+                              </div>
+                              {entry.start_time && (
                                 <div style={{ 
-                                  padding: '12px',
-                                  minHeight: '80px',
+                                  fontSize: '12px', 
+                                  color: '#94a3b8',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: '#cbd5e1',
-                                  fontSize: '14px'
+                                  gap: '4px'
                                 }}>
-                                  Free
+                                  <Clock size={12} />
+                                  {entry.start_time} - {entry.end_time}
                                 </div>
                               )}
-                            </td>
-                          );
-                        })}
+                            </div>
+                          ) : (
+                            <div style={{ 
+                              padding: '12px',
+                              minHeight: '80px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#cbd5e1',
+                              fontSize: '14px'
+                            }}>
+                              Free
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
                       </tr>
                     );
                   })}
