@@ -1627,10 +1627,6 @@ export class ApiService {
       body: JSON.stringify(data),
     });
   }
-}
-
-export const apiService = new ApiService();
-
 
   /**
    * Export academic year data
@@ -1639,3 +1635,6 @@ export const apiService = new ApiService();
   async exportAcademicYearData(academicYearId: string) {
     return this.request<{ data: any }>(`/academic-years/${academicYearId}/export`);
   }
+}
+
+export const apiService = new ApiService();
