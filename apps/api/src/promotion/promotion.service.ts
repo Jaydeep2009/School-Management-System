@@ -246,54 +246,60 @@ export async function bulkPromoteStudents(
   let targetClassroomId: string | null = null;
   
   if (request.action === 'promote') {
-    const newGradeLevel = currentClassroom.grade_level + 1;
-    const newGradeName = `Grade ${newGradeLevel}`;
-    const divisionName = currentClassroom.division_name;
-    const classroomCode = `${newGradeName}-${divisionName}`;
-
-    // Try to find existing classroom
-    let targetClassroom = await db
-      .prepare(
-        `SELECT id FROM classrooms 
-         WHERE school_id = ? 
-           AND academic_year_id = ?
-           AND grade_level = ? 
-           AND division_name = ?
-         LIMIT 1`
-      )
-      .bind(tenant.schoolId, request.new_academic_year_id, newGradeLevel, divisionName)
-      .first<{ id: string }>();
-
-    // If doesn't exist, create it
-    if (!targetClassroom) {
-      const newClassroomId = crypto.randomUUID();
-      const now = Date.now();
-      
-      await db
-        .prepare(
-          `INSERT INTO classrooms (
-             id, school_id, academic_year_id, classroom_code, 
-             grade_name, division_name, grade_level, status, 
-             created_at, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
-        )
-        .bind(
-          newClassroomId,
-          tenant.schoolId,
-          request.new_academic_year_id,
-          classroomCode,
-          newGradeName,
-          divisionName,
-          newGradeLevel,
-          now,
-          now
-        )
-        .run();
-      
-      targetClassroomId = newClassroomId;
-      console.log(`[Promotion] Auto-created classroom ${classroomCode} for academic year`);
+    // If principal selected a target classroom, use it
+    if (request.target_classroom_id) {
+      targetClassroomId = request.target_classroom_id;
     } else {
-      targetClassroomId = targetClassroom.id;
+      // Otherwise auto-create based on current classroom
+      const newGradeLevel = currentClassroom.grade_level + 1;
+      const newGradeName = `Grade ${newGradeLevel}`;
+      const divisionName = currentClassroom.division_name;
+      const classroomCode = `${newGradeName}-${divisionName}`;
+
+      // Try to find existing classroom
+      let targetClassroom = await db
+        .prepare(
+          `SELECT id FROM classrooms 
+           WHERE school_id = ? 
+             AND academic_year_id = ?
+             AND grade_level = ? 
+             AND division_name = ?
+           LIMIT 1`
+        )
+        .bind(tenant.schoolId, request.new_academic_year_id, newGradeLevel, divisionName)
+        .first<{ id: string }>();
+
+      // If doesn't exist, create it
+      if (!targetClassroom) {
+        const newClassroomId = crypto.randomUUID();
+        const now = Date.now();
+        
+        await db
+          .prepare(
+            `INSERT INTO classrooms (
+               id, school_id, academic_year_id, classroom_code, 
+               grade_name, division_name, grade_level, status, 
+               created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+          )
+          .bind(
+            newClassroomId,
+            tenant.schoolId,
+            request.new_academic_year_id,
+            classroomCode,
+            newGradeName,
+            divisionName,
+            newGradeLevel,
+            now,
+            now
+          )
+          .run();
+        
+        targetClassroomId = newClassroomId;
+        console.log(`[Promotion] Auto-created classroom ${classroomCode} for academic year`);
+      } else {
+        targetClassroomId = targetClassroom.id;
+      }
     }
   }
 

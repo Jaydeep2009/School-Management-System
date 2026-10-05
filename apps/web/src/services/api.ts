@@ -1618,7 +1618,7 @@ export class ApiService {
     current_academic_year_id: string;
     new_academic_year_id: string;
     action: 'promote' | 'retain' | 'graduate' | 'dropout';
-    new_grade?: number;
+    target_classroom_id?: string;
     student_ids?: string[];
     remarks?: string;
   }) {

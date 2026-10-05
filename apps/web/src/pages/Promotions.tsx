@@ -20,6 +20,8 @@ export function Promotions() {
   const [selectedCurrentYear, setSelectedCurrentYear] = useState<string>('');
   const [selectedNewYear, setSelectedNewYear] = useState<string>('');
   const [selectedClassroom, setSelectedClassroom] = useState<string>('');
+  const [selectedTargetClassroom, setSelectedTargetClassroom] = useState<string>('');
+  const [targetClassrooms, setTargetClassrooms] = useState<any[]>([]);
   const [preview, setPreview] = useState<any>(null);
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +39,23 @@ export function Promotions() {
       loadPreview();
     }
   }, [selectedCurrentYear, selectedClassroom]);
+
+  useEffect(() => {
+    if (selectedNewYear) {
+      loadTargetClassrooms();
+    }
+  }, [selectedNewYear]);
+
+  const loadTargetClassrooms = async () => {
+    if (!selectedNewYear) return;
+    
+    try {
+      const res = await apiService.getClassrooms({ academic_year_id: selectedNewYear });
+      setTargetClassrooms(res.data || []);
+    } catch (err) {
+      console.error('Failed to load target classrooms:', err);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -104,6 +123,11 @@ export function Promotions() {
       return;
     }
 
+    if (action === 'promote' && !selectedTargetClassroom) {
+      alert('Please select target classroom');
+      return;
+    }
+
     if (selectedStudents.size === 0) {
       alert('Please select at least one student');
       return;
@@ -122,19 +146,12 @@ export function Promotions() {
         return student?.student_id;
       }).filter(Boolean);
 
-      let newGrade: number | undefined;
-      if (bulkAction === 'promote') {
-        newGrade = preview.current_grade + 1;
-      } else if (bulkAction === 'retain') {
-        newGrade = preview.current_grade;
-      }
-
       const res = await apiService.bulkPromoteStudents({
         classroom_id: selectedClassroom,
         current_academic_year_id: selectedCurrentYear,
         new_academic_year_id: selectedNewYear || selectedCurrentYear,
         action: bulkAction,
-        new_grade: newGrade,
+        target_classroom_id: selectedTargetClassroom || undefined,
         student_ids: studentIds,
       });
 
@@ -269,6 +286,31 @@ export function Promotions() {
                 >
                   <option value="">Select Classroom</option>
                   {classrooms.map((classroom) => (
+                    <option key={classroom.id} value={classroom.id}>
+                      {classroom.grade_name}-{classroom.division_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
+                  Target Classroom (for promotion)
+                </label>
+                <select
+                  value={selectedTargetClassroom}
+                  onChange={(e) => setSelectedTargetClassroom(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                  }}
+                  disabled={!selectedNewYear}
+                >
+                  <option value="">Select Target Classroom</option>
+                  {targetClassrooms.map((classroom) => (
                     <option key={classroom.id} value={classroom.id}>
                       {classroom.grade_name}-{classroom.division_name}
                     </option>

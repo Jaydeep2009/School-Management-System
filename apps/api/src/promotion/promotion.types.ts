@@ -26,7 +26,7 @@ export interface BulkPromotionRequest {
   current_academic_year_id: string;
   new_academic_year_id: string;
   action: PromotionAction;
-  new_grade?: number; // Target grade for promotion
+  target_classroom_id?: string; // Principal selects target classroom
   student_ids?: string[]; // If empty, applies to all students in classroom
   remarks?: string;
 }
