@@ -228,31 +228,123 @@ export async function bulkPromoteStudents(
   let successCount = 0;
   let failedCount = 0;
 
-  // Get target classroom for new grade (if promoting)
-  let targetClassroomId: string | null = null;
-  if (request.action === 'promote' && request.new_grade) {
-    const targetClassroom = await db
-      .prepare(
-        `SELECT id FROM classrooms 
-         WHERE school_id = ? AND grade_level = ? 
-         LIMIT 1`
-      )
-      .bind(tenant.schoolId, request.new_grade)
-      .first<{ id: string }>();
+  // Get current classroom details to determine target classroom
+  const currentClassroom = await db
+    .prepare(
+      `SELECT grade_level, grade_name, division_name 
+       FROM classrooms 
+       WHERE id = ? AND school_id = ?`
+    )
+    .bind(request.classroom_id, tenant.schoolId)
+    .first<{ grade_level: number; grade_name: string; division_name: string }>();
 
-    if (!targetClassroom) {
-      throw new PromotionError(
-        `No classroom found for grade level ${request.new_grade}`,
-        'TARGET_CLASSROOM_NOT_FOUND',
-        404
-      );
-    }
-    targetClassroomId = targetClassroom.id;
+  if (!currentClassroom) {
+    throw new PromotionError('Current classroom not found', 'CLASSROOM_NOT_FOUND', 404);
   }
 
-  // If retaining, use same classroom
+  // Get or create target classroom
+  let targetClassroomId: string | null = null;
+  
+  if (request.action === 'promote') {
+    const newGradeLevel = currentClassroom.grade_level + 1;
+    const newGradeName = `Grade ${newGradeLevel}`;
+    const divisionName = currentClassroom.division_name;
+    const classroomCode = `${newGradeName}-${divisionName}`;
+
+    // Try to find existing classroom
+    let targetClassroom = await db
+      .prepare(
+        `SELECT id FROM classrooms 
+         WHERE school_id = ? 
+           AND academic_year_id = ?
+           AND grade_level = ? 
+           AND division_name = ?
+         LIMIT 1`
+      )
+      .bind(tenant.schoolId, request.new_academic_year_id, newGradeLevel, divisionName)
+      .first<{ id: string }>();
+
+    // If doesn't exist, create it
+    if (!targetClassroom) {
+      const newClassroomId = crypto.randomUUID();
+      const now = Date.now();
+      
+      await db
+        .prepare(
+          `INSERT INTO classrooms (
+             id, school_id, academic_year_id, classroom_code, 
+             grade_name, division_name, grade_level, status, 
+             created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+        )
+        .bind(
+          newClassroomId,
+          tenant.schoolId,
+          request.new_academic_year_id,
+          classroomCode,
+          newGradeName,
+          divisionName,
+          newGradeLevel,
+          now,
+          now
+        )
+        .run();
+      
+      targetClassroomId = newClassroomId;
+      console.log(`[Promotion] Auto-created classroom ${classroomCode} for academic year`);
+    } else {
+      targetClassroomId = targetClassroom.id;
+    }
+  }
+
+  // If retaining, need to find/create same grade classroom in new year
   if (request.action === 'retain') {
-    targetClassroomId = request.classroom_id;
+    const classroomCode = `${currentClassroom.grade_name}-${currentClassroom.division_name}`;
+    
+    // Try to find existing classroom
+    let targetClassroom = await db
+      .prepare(
+        `SELECT id FROM classrooms 
+         WHERE school_id = ? 
+           AND academic_year_id = ?
+           AND grade_level = ? 
+           AND division_name = ?
+         LIMIT 1`
+      )
+      .bind(tenant.schoolId, request.new_academic_year_id, currentClassroom.grade_level, currentClassroom.division_name)
+      .first<{ id: string }>();
+
+    // If doesn't exist, create it
+    if (!targetClassroom) {
+      const newClassroomId = crypto.randomUUID();
+      const now = Date.now();
+      
+      await db
+        .prepare(
+          `INSERT INTO classrooms (
+             id, school_id, academic_year_id, classroom_code, 
+             grade_name, division_name, grade_level, status, 
+             created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+        )
+        .bind(
+          newClassroomId,
+          tenant.schoolId,
+          request.new_academic_year_id,
+          classroomCode,
+          currentClassroom.grade_name,
+          currentClassroom.division_name,
+          currentClassroom.grade_level,
+          now,
+          now
+        )
+        .run();
+      
+      targetClassroomId = newClassroomId;
+      console.log(`[Promotion] Auto-created classroom ${classroomCode} for retention`);
+    } else {
+      targetClassroomId = targetClassroom.id;
+    }
   }
 
   // Get students to promote
