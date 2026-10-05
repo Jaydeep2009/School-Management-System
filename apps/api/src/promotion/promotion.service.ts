@@ -93,21 +93,6 @@ export async function getPromotionPreview(
     total_students: students.length,
     students
   };
-      student_name: e.student_name,
-      roll_number: e.roll_number,
-      current_grade: e.current_grade,
-      suggested_action: suggestedAction,
-      suggested_new_grade: suggestedNewGrade
-    };
-  });
-
-  return {
-    classroom_id: classroomId,
-    classroom_name: `Grade ${classroom.grade}-${classroom.division}`,
-    current_grade: classroom.grade,
-    total_students: students.length,
-    students
-  };
 }
 
 /**
