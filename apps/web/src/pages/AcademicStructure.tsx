@@ -784,7 +784,7 @@ export function AcademicStructure() {
                                   }
                                   
                                   // Download
-                                  XLSX.writeFile(wb, `${item.label || item.year_label}_data.xlsx`);
+                                  XLSX.writeFile(wb, `${item.label}_data.xlsx`);
                                   alert('Academic year data exported successfully!');
                                 } catch (err) {
                                   console.error('Export error:', err);

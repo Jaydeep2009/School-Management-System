@@ -221,7 +221,7 @@ export function Promotions() {
                   <option value="">Select Year</option>
                   {academicYears.map((year) => (
                     <option key={year.id} value={year.id}>
-                      {year.year_label} ({year.status})
+                      {year.label} ({year.status})
                     </option>
                   ))}
                 </select>
@@ -245,7 +245,7 @@ export function Promotions() {
                   <option value="">Select Year</option>
                   {academicYears.map((year) => (
                     <option key={year.id} value={year.id}>
-                      {year.year_label}
+                      {year.label}
                     </option>
                   ))}
                 </select>
@@ -270,7 +270,7 @@ export function Promotions() {
                   <option value="">Select Classroom</option>
                   {classrooms.map((classroom) => (
                     <option key={classroom.id} value={classroom.id}>
-                      Grade {classroom.grade}-{classroom.division}
+                      {classroom.grade_name}-{classroom.division_name}
                     </option>
                   ))}
                 </select>
