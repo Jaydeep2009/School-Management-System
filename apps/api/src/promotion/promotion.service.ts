@@ -106,7 +106,7 @@ export async function promoteStudent(
   // Get current enrollment
   const enrollment = await db
     .prepare(
-      `SELECT e.*, c.grade as current_grade
+      `SELECT e.*, c.grade_level as current_grade
        FROM enrollments e
        JOIN classrooms c ON e.classroom_id = c.id
        WHERE e.id = ? AND e.school_id = ?`
