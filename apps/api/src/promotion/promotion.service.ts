@@ -27,12 +27,12 @@ export async function getPromotionPreview(
   // Get classroom details
   const classroom = await db
     .prepare(
-      `SELECT id, grade, division, stream 
+      `SELECT id, grade_level, grade_name, division_name 
        FROM classrooms 
        WHERE id = ? AND school_id = ?`
     )
     .bind(classroomId, tenant.schoolId)
-    .first<{ id: string; grade: number; division: string; stream: string | null }>();
+    .first<{ id: string; grade_level: number; grade_name: string; division_name: string }>();
 
   if (!classroom) {
     throw PromotionError.classroomNotFound(classroomId);
@@ -46,7 +46,7 @@ export async function getPromotionPreview(
          e.student_id,
          e.roll_number,
          sp.first_name || ' ' || sp.last_name as student_name,
-         c.grade as current_grade
+         c.grade_level as current_grade
        FROM enrollments e
        JOIN student_profiles sp ON e.student_id = sp.user_id
        JOIN classrooms c ON e.classroom_id = c.id
@@ -78,6 +78,21 @@ export async function getPromotionPreview(
     return {
       enrollment_id: e.enrollment_id,
       student_id: e.student_id,
+      student_name: e.student_name,
+      roll_number: e.roll_number,
+      current_grade: e.current_grade,
+      suggested_action: suggestedAction,
+      suggested_new_grade: suggestedNewGrade
+    };
+  });
+
+  return {
+    classroom_id: classroomId,
+    classroom_name: `${classroom.grade_name}-${classroom.division_name}`,
+    current_grade: classroom.grade_level,
+    total_students: students.length,
+    students
+  };
       student_name: e.student_name,
       roll_number: e.roll_number,
       current_grade: e.current_grade,
@@ -160,7 +175,7 @@ export async function promoteStudent(
         .prepare(
           `INSERT INTO enrollments (
              id, student_id, classroom_id, academic_year_id, school_id,
-             status, enrollment_date, created_at, updated_at
+             status, joined_on, created_at, updated_at
            ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`
         )
         .bind(
@@ -234,7 +249,7 @@ export async function bulkPromoteStudents(
     const targetClassroom = await db
       .prepare(
         `SELECT id FROM classrooms 
-         WHERE school_id = ? AND grade = ? 
+         WHERE school_id = ? AND grade_level = ? 
          LIMIT 1`
       )
       .bind(tenant.schoolId, request.new_grade)
@@ -242,7 +257,7 @@ export async function bulkPromoteStudents(
 
     if (!targetClassroom) {
       throw new PromotionError(
-        `No classroom found for grade ${request.new_grade}`,
+        `No classroom found for grade level ${request.new_grade}`,
         'TARGET_CLASSROOM_NOT_FOUND',
         404
       );
