@@ -159,7 +159,20 @@ export async function getAssignmentById(
   // Authorization check
   await assignmentsAuthz.ensureCanViewAssignment(db, tenant, assignment);
 
-  return assignment;
+  // Load attachments
+  const attachments = await assignmentsRepo.findAttachmentsByAssignment(db, id);
+  
+  // Return assignment with attachments (without r2_key)
+  return {
+    ...assignment,
+    attachments: attachments.map(att => ({
+      id: att.id,
+      file_name: att.file_name,
+      content_type: att.content_type,
+      size_bytes: att.size_bytes,
+      created_at: att.created_at,
+    })),
+  };
 }
 
 /**
