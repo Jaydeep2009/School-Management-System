@@ -86,7 +86,11 @@ export interface PushSubscription {
   id: string;
   user_id: string;
   
-  // Push API data
+  // FCM token (unified for web + mobile)
+  fcm_token: string | null;
+  device_type: 'web' | 'android' | 'ios' | null;
+  
+  // Web Push API data (legacy/fallback)
   endpoint: string;
   keys_json: string;
   
@@ -140,9 +144,12 @@ export interface UpdateNotificationRequest {
  * Request to subscribe to push notifications
  */
 export interface CreatePushSubscriptionRequest {
-  endpoint: string;
-  keys: PushSubscriptionKeys;
+  fcm_token: string;
+  device_type: 'web' | 'android' | 'ios';
   user_agent?: string;
+  // Legacy Web Push support (optional)
+  endpoint?: string;
+  keys?: PushSubscriptionKeys;
 }
 
 /**
