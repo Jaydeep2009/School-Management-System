@@ -102,7 +102,7 @@ export async function canViewClassroom(
     // Check if teacher has any teaching assignment in this classroom
     const hasAssignment = await authzRepo.findAnyTeachingAssignment(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.schoolId
     );
@@ -114,7 +114,7 @@ export async function canViewClassroom(
     // Check if teacher is the class teacher
     const isClassTeacherFlag = await authzRepo.isClassTeacher(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.schoolId
     );
@@ -136,7 +136,7 @@ export async function canViewClassroom(
 
     const enrollment = await authzRepo.findActiveEnrollment(
       db,
-      studentProfile.id,
+      studentProfile.user_id,
       context.classroomId,
       context.schoolId
     );
@@ -200,7 +200,7 @@ export async function canViewStudent(
 
     return await authzRepo.canTeacherAccessStudent(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.studentId,
       context.schoolId
     );
@@ -218,7 +218,7 @@ export async function canViewStudent(
       return false;
     }
 
-    return studentProfile.id === context.studentId;
+    return studentProfile.user_id === context.studentId;
   }
 
   // Deny by default
@@ -275,7 +275,7 @@ export async function hasTeachingAssignment(
   if (!context.subjectId) {
     const assignment = await authzRepo.findAnyTeachingAssignment(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.schoolId
     );
@@ -285,7 +285,7 @@ export async function hasTeachingAssignment(
   // Check specific teaching assignment
   const assignment = await authzRepo.findTeachingAssignment(
     db,
-    teacherProfile.id,
+    teacherProfile.user_id,
     context.classroomId,
     context.subjectId,
     context.schoolId
@@ -329,7 +329,7 @@ export async function isClassTeacher(
 
   return await authzRepo.isClassTeacher(
     db,
-    teacherProfile.id,
+    teacherProfile.user_id,
     classroomId,
     schoolId
   );
@@ -375,7 +375,7 @@ export async function canViewAttendance(
     // Check if has teaching assignment for this classroom+subject
     const assignment = await authzRepo.findTeachingAssignment(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.subjectId,
       context.schoolId
@@ -388,7 +388,7 @@ export async function canViewAttendance(
     // Check if is class teacher (VIEW-only access for other subjects)
     const isClassTeacherFlag = await authzRepo.isClassTeacher(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.schoolId
     );
@@ -408,7 +408,7 @@ export async function canViewAttendance(
       return false;
     }
 
-    return studentProfile.id === studentId;
+    return studentProfile.user_id === studentId;
   }
 
   // Deny by default
@@ -455,7 +455,7 @@ export async function canModifyAttendance(
     // Check teaching assignment for this specific classroom+subject
     const assignment = await authzRepo.findTeachingAssignment(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.subjectId,
       context.schoolId
@@ -505,7 +505,7 @@ export async function canViewMarks(
     // Check if has teaching assignment for this classroom+subject
     const assignment = await authzRepo.findTeachingAssignment(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.subjectId,
       context.schoolId
@@ -518,7 +518,7 @@ export async function canViewMarks(
     // Check if is class teacher (VIEW-only access for other subjects)
     const isClassTeacherFlag = await authzRepo.isClassTeacher(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.schoolId
     );
@@ -538,7 +538,7 @@ export async function canViewMarks(
       return false;
     }
 
-    return studentProfile.id === studentId;
+    return studentProfile.user_id === studentId;
   }
 
   // Deny by default
@@ -580,7 +580,7 @@ export async function canModifyMarks(
     // Check teaching assignment for this specific classroom+subject
     const assignment = await authzRepo.findTeachingAssignment(
       db,
-      teacherProfile.id,
+      teacherProfile.user_id,
       context.classroomId,
       context.subjectId,
       context.schoolId
@@ -631,7 +631,7 @@ export async function canViewFees(
       return false;
     }
 
-    return studentProfile.id === studentId;
+    return studentProfile.user_id === studentId;
   }
 
   // Teacher: no access to fees (unless future requirements change)

@@ -2,6 +2,7 @@
  * Teacher Routes
  * 
  * GET /teachers - List teachers
+ * GET /teachers/export - Export teacher list as CSV (principal only)
  * GET /teachers/:id - Get teacher by ID
  * POST /teachers - Create teacher (principal only)
  * PATCH /teachers/:id - Update teacher (principal only)
@@ -14,6 +15,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as teacherService from './teacher.service';
+import * as credentialsExportService from './credentials-export.service';
 import * as teacherSchemas from './accounts.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requirePrincipal } from '../auth/role.middleware';
@@ -44,6 +46,35 @@ teachers.get('/', requireAuth, requirePrincipal(), async (c) => {
     return c.json({ data: teacherList }, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to list teachers';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
+ * GET /teachers/export
+ * Export teacher list as CSV
+ * Authorization: Principal only
+ * 
+ * Returns CSV file with teacher details (NO passwords - passwords only available at creation time)
+ * Format: Login ID, Name, Employee Code, Account Status, Activation Status
+ */
+teachers.get('/export', requireAuth, requirePrincipal(), async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    
+    const csvContent = await credentialsExportService.exportTeacherList(
+      c.env.DB,
+      tenant.schoolId,
+      tenant
+    );
+    
+    // Return CSV file
+    return c.text(csvContent, 200, {
+      'Content-Type': 'text/csv',
+      'Content-Disposition': `attachment; filename="teachers-${tenant.schoolId}-${new Date().toISOString().split('T')[0]}.csv"`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to export teachers';
     return c.json({ error: message }, 500);
   }
 });

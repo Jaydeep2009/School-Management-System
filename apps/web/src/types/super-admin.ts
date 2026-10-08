@@ -19,6 +19,14 @@ export interface SuperAdminLoginResponse {
 
 export type SchoolStatus = 'active' | 'suspended' | 'archived';
 
+export interface PrincipalDetails {
+  user_id: string;
+  login_id: string;
+  status: string;
+  created_at: number;
+  last_login_at: number | null;
+}
+
 export interface School {
   id: string;
   code: string;
@@ -33,6 +41,7 @@ export interface School {
   updated_at: string;
   suspended_at?: string;
   archived_at?: string;
+  principal?: PrincipalDetails | null;
 }
 
 export interface CreateSchoolRequest {

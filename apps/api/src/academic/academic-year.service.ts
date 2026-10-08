@@ -251,3 +251,60 @@ export async function close(
 
   return getById(db, id, schoolId);
 }
+
+/**
+ * Set academic year as current (manual override by principal)
+ * 
+ * RULE: Automatically closes any existing current year
+ * RULE: Can set any year (upcoming, closed, archived) as current
+ * This gives principal full control over which year's data is displayed
+ */
+export async function setAsCurrent(
+  db: D1Database,
+  id: string,
+  schoolId: string
+): Promise<AcademicYear> {
+  const academicYear = await getById(db, id, schoolId);
+
+  // If already current, nothing to do
+  if (academicYear.status === 'current') {
+    return academicYear;
+  }
+
+  // Use batch to ensure atomicity: close old current year, set new current year
+  const batch = [];
+
+  // Find current year and close it
+  const currentYear = await getCurrent(db, schoolId);
+  if (currentYear) {
+    batch.push(
+      db.prepare(
+        `UPDATE academic_years 
+         SET status = 'closed', updated_at = ? 
+         WHERE id = ? AND school_id = ?`
+      ).bind(Date.now(), currentYear.id, schoolId)
+    );
+  }
+
+  // Set new year as current
+  batch.push(
+    db.prepare(
+      `UPDATE academic_years 
+       SET status = 'current', updated_at = ? 
+       WHERE id = ? AND school_id = ?`
+    ).bind(Date.now(), id, schoolId)
+  );
+
+  const results = await db.batch(batch);
+  
+  // Verify both operations succeeded
+  if (results.some(r => !r.success)) {
+    throw new AcademicYearError(
+      'Failed to set academic year as current',
+      'UPDATE_FAILED',
+      500
+    );
+  }
+
+  return getById(db, id, schoolId);
+}

@@ -178,8 +178,15 @@ auth.get('/me', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     
+    // Fetch user's loginId from database
+    const user = await c.env.DB
+      .prepare('SELECT login_id FROM users WHERE id = ? AND school_id = ?')
+      .bind(tenant.userId, tenant.schoolId)
+      .first<{ login_id: string }>();
+    
     return c.json({
       userId: tenant.userId,
+      loginId: user?.login_id || '',
       role: tenant.role,
       schoolId: tenant.schoolId,
       sessionId: tenant.sessionId,

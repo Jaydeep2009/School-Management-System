@@ -100,9 +100,10 @@ export const updateSubjectSchema = z.object({
  * Teaching Assignment Schemas
  */
 export const createTeachingAssignmentSchema = z.object({
+  academic_year_id: idSchema,
   teacher_id: idSchema,
   classroom_id: idSchema,
-  subject_id: idSchema,
+  subject_id: z.string().min(1, 'Subject ID is required'),
 });
 
 export const updateTeachingAssignmentSchema = z.object({

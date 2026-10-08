@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '../components/layout/Layout';
+import { TeacherLayout } from '../components/layout/TeacherLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -51,24 +51,24 @@ export function Assignments() {
 
   if (!selectedYear) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
         <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
           <p style={{ fontSize: '16px', marginBottom: '8px' }}>Please select an academic year to view assignments</p>
           <p style={{ fontSize: '14px' }}>Use the dropdown in the header to select a year</p>
         </div>
-      </Layout>
+      </TeacherLayout>
     );
   }
 
   return (
-    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+    <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
       <div style={{ padding: '32px' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>Assignments</h1>
             <p style={{ fontSize: '14px', color: '#64748b' }}>View and manage assignments</p>
           </div>
-          <Button onClick={() => navigate('/assignments/new')}>
+          <Button onClick={() => navigate('/teacher/assignments/new')}>
             <Plus size={16} style={{ marginRight: '8px' }} />
             New Assignment
           </Button>
@@ -83,7 +83,7 @@ export function Assignments() {
                 <FileText size={48} style={{ color: '#cbd5e1', marginBottom: '16px' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No assignments</h3>
                 <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>Start by creating your first assignment</p>
-                <Button onClick={() => navigate('/assignments/new')}>Create Assignment</Button>
+                <Button onClick={() => navigate('/teacher/assignments/new')}>Create Assignment</Button>
               </div>
             )}
             {!isLoading && !error && assignments.length > 0 && (
@@ -92,7 +92,7 @@ export function Assignments() {
                   <div
                     key={assignment.id}
                     style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
-                    onClick={() => navigate(`/assignments/${assignment.id}`)}
+                    onClick={() => navigate(`/teacher/assignments/${assignment.id}`)}
                   >
                     <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>{assignment.title}</div>
                     <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '4px' }}>
@@ -110,7 +110,7 @@ export function Assignments() {
           </div>
         </Card>
       </div>
-    </Layout>
+    </TeacherLayout>
   );
 }
 

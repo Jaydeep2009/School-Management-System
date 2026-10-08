@@ -29,11 +29,11 @@ import { z } from 'zod';
 const assignments = new Hono<AuthContext>();
 
 /**
- * POST /assignments
+ * POST /
  * Create new assignment
  * Authorization: Principal or assigned teacher
  */
-assignments.post('/assignments', requireAuth, async (c) => {
+assignments.post('/', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const body = await c.req.json();
@@ -61,11 +61,11 @@ assignments.post('/assignments', requireAuth, async (c) => {
 });
 
 /**
- * GET /assignments
+ * GET /
  * List assignments
  * Authorization: Principal, authorized teacher, student (published only in their classroom)
  */
-assignments.get('/assignments', requireAuth, async (c) => {
+assignments.get('/', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const query = c.req.query();
@@ -93,11 +93,11 @@ assignments.get('/assignments', requireAuth, async (c) => {
 });
 
 /**
- * GET /assignments/:id
+ * GET /:id
  * Get assignment details
  * Authorization: Principal, authorized teacher, or student (if published)
  */
-assignments.get('/assignments/:id', requireAuth, async (c) => {
+assignments.get('/:id', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
@@ -123,11 +123,11 @@ assignments.get('/assignments/:id', requireAuth, async (c) => {
 });
 
 /**
- * PUT /assignments/:id
+ * PUT /:id
  * Update assignment
  * Authorization: Principal or assigned teacher (draft only)
  */
-assignments.put('/assignments/:id', requireAuth, async (c) => {
+assignments.put('/:id', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
@@ -168,11 +168,11 @@ assignments.put('/assignments/:id', requireAuth, async (c) => {
 });
 
 /**
- * POST /assignments/:id/publish
+ * POST /:id/publish
  * Publish assignment
  * Authorization: Principal or assigned teacher
  */
-assignments.post('/assignments/:id/publish', requireAuth, async (c) => {
+assignments.post('/:id/publish', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
@@ -194,11 +194,11 @@ assignments.post('/assignments/:id/publish', requireAuth, async (c) => {
 });
 
 /**
- * POST /assignments/:id/close
+ * POST /:id/close
  * Close assignment
  * Authorization: Principal or assigned teacher
  */
-assignments.post('/assignments/:id/close', requireAuth, async (c) => {
+assignments.post('/:id/close', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
@@ -220,12 +220,19 @@ assignments.post('/assignments/:id/close', requireAuth, async (c) => {
 });
 
 /**
- * POST /assignments/:id/attachments
+ * POST /:id/attachments
  * Upload attachment
  * Authorization: Principal or assigned teacher (draft only)
  */
-assignments.post('/assignments/:id/attachments', requireAuth, async (c) => {
+assignments.post('/:id/attachments', requireAuth, async (c) => {
   try {
+    // Check if R2 bucket is configured
+    if (!c.env.BUCKET) {
+      return c.json({ 
+        error: 'File storage is not configured. Please enable R2 storage in Cloudflare dashboard to upload files.' 
+      }, 503);
+    }
+
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
 
@@ -265,11 +272,11 @@ assignments.post('/assignments/:id/attachments', requireAuth, async (c) => {
 });
 
 /**
- * GET /assignments/:id/attachments
+ * GET /:id/attachments
  * List attachments
  * Authorization: Principal, authorized teacher, or student (if published)
  */
-assignments.get('/assignments/:id/attachments', requireAuth, async (c) => {
+assignments.get('/:id/attachments', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
@@ -295,11 +302,11 @@ assignments.get('/assignments/:id/attachments', requireAuth, async (c) => {
 });
 
 /**
- * GET /assignments/:id/attachments/:attachmentId
+ * GET /:id/attachments/:attachmentId
  * Download attachment
  * Authorization: Principal, authorized teacher, or student (if published)
  */
-assignments.get('/assignments/:id/attachments/:attachmentId', requireAuth, async (c) => {
+assignments.get('/:id/attachments/:attachmentId', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');
@@ -342,11 +349,11 @@ assignments.get('/assignments/:id/attachments/:attachmentId', requireAuth, async
 });
 
 /**
- * DELETE /assignments/:id/attachments/:attachmentId
+ * DELETE /:id/attachments/:attachmentId
  * Delete attachment
  * Authorization: Principal or assigned teacher (draft only)
  */
-assignments.delete('/assignments/:id/attachments/:attachmentId', requireAuth, async (c) => {
+assignments.delete('/:id/attachments/:attachmentId', requireAuth, async (c) => {
   try {
     const tenant = requireSchoolTenant(c);
     const id = c.req.param('id');

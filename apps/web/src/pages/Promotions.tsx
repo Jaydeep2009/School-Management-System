@@ -155,7 +155,13 @@ export function Promotions() {
         student_ids: studentIds,
       });
 
-      alert(res.message || 'Students promoted successfully');
+      // Show detailed results
+      let message = res.message || 'Students promoted successfully';
+      if (res.data?.errors && res.data.errors.length > 0) {
+        message += '\n\nErrors:\n' + res.data.errors.join('\n');
+      }
+      alert(message);
+      
       setShowConfirmDialog(false);
       setBulkAction(null);
       loadPreview();
@@ -246,6 +252,33 @@ export function Promotions() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
+                  Current Classroom
+                </label>
+                <select
+                  value={selectedClassroom}
+                  onChange={(e) => setSelectedClassroom(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                  }}
+                  disabled={!selectedCurrentYear}
+                >
+                  <option value="">Select Classroom</option>
+                  {classrooms
+                    .filter(c => c.academic_year_id === selectedCurrentYear)
+                    .map((classroom) => (
+                      <option key={classroom.id} value={classroom.id}>
+                        {classroom.grade_name}-{classroom.division_name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
                   Target Academic Year
                 </label>
                 <select
@@ -263,31 +296,6 @@ export function Promotions() {
                   {academicYears.map((year) => (
                     <option key={year.id} value={year.id}>
                       {year.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
-                  Classroom
-                </label>
-                <select
-                  value={selectedClassroom}
-                  onChange={(e) => setSelectedClassroom(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                  }}
-                  disabled={!selectedCurrentYear}
-                >
-                  <option value="">Select Classroom</option>
-                  {classrooms.map((classroom) => (
-                    <option key={classroom.id} value={classroom.id}>
-                      {classroom.grade_name}-{classroom.division_name}
                     </option>
                   ))}
                 </select>

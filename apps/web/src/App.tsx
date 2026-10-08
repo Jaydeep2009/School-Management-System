@@ -22,7 +22,8 @@ import { Marks } from './pages/Marks';
 import { AssessmentForm } from './pages/AssessmentForm';
 import { AssessmentDetail } from './pages/AssessmentDetail';
 import { Assignments } from './pages/Assignments';
-// AssignmentForm and AssignmentDetail removed - principals don't have access to assignments
+import { AssignmentForm } from './pages/AssignmentForm';
+import { AssignmentDetail } from './pages/AssignmentDetail';
 import { Fees } from './pages/Fees';
 import { FeeCategoriesList } from './pages/FeeCategoriesList';
 import { FeeCategoryForm } from './pages/FeeCategoryForm';
@@ -730,6 +731,36 @@ function App() {
             <ProtectedRoute>
               <RoleRoute allowedRoles="teacher">
                 <Assignments />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/assignments/new"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles="teacher">
+                <AssignmentForm />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/assignments/:id"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles="teacher">
+                <AssignmentDetail />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher/assignments/:id/edit"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles="teacher">
+                <AssignmentForm />
               </RoleRoute>
             </ProtectedRoute>
           }

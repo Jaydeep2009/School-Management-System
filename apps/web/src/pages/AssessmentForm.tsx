@@ -62,24 +62,39 @@ export function AssessmentForm() {
         apiService.getSubjects(),
       ]);
       
+      console.log('=== AssessmentForm loadData ===');
+      console.log('Academic Years:', yearsRes.data);
+      console.log('Classrooms:', classroomsRes.data);
+      console.log('Subjects from API:', subjectsRes.data);
+      
       setAcademicYears(yearsRes.data);
 
       // For teachers, filter to only assigned classrooms/subjects
+      // For principal, show all classrooms and subjects
       if (user?.role === 'teacher') {
         const teachingRes = await apiService.getMyTeaching();
         const assignments = teachingRes.data;
+        
+        console.log('Teaching assignments:', assignments);
         
         // Get unique classroom IDs and subject IDs from assignments
         const assignedClassroomIds = new Set(assignments.map((a: any) => a.classroom_id));
         const assignedSubjectIds = new Set(assignments.map((a: any) => a.subject_id));
         
+        console.log('Assigned classroom IDs:', Array.from(assignedClassroomIds));
+        console.log('Assigned subject IDs:', Array.from(assignedSubjectIds));
+        
         // Filter classrooms and subjects
         const filteredClassrooms = classroomsRes.data.filter((c: any) => assignedClassroomIds.has(c.id));
         const filteredSubjects = subjectsRes.data.filter((s: any) => assignedSubjectIds.has(s.id));
         
+        console.log('Filtered classrooms:', filteredClassrooms);
+        console.log('Filtered subjects:', filteredSubjects);
+        
         setClassrooms(filteredClassrooms);
         setSubjects(filteredSubjects);
       } else {
+        // Principal sees all classrooms and subjects
         setClassrooms(classroomsRes.data);
         setSubjects(subjectsRes.data);
       }
@@ -89,6 +104,7 @@ export function AssessmentForm() {
         setSelectedAcademicYear(currentYear.id);
       }
     } catch (err) {
+      console.error('Error in loadData:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
     }
   };
@@ -149,7 +165,24 @@ export function AssessmentForm() {
       } else {
         // Create new assessment
         console.log('Creating assessment with data:', formData);
-        const response = await apiService.createAssessment(formData);
+        
+        // Prepare data - remove empty optional fields
+        const createData: any = {
+          classroom_id: formData.classroom_id,
+          subject_id: formData.subject_id,
+          name: formData.name,
+          max_marks: formData.max_marks,
+        };
+        
+        // Only include optional fields if they have values
+        if (formData.weightage && formData.weightage > 0) {
+          createData.weightage = formData.weightage;
+        }
+        if (formData.held_on && formData.held_on.trim() !== '') {
+          createData.held_on = formData.held_on;
+        }
+        
+        const response = await apiService.createAssessment(createData);
         console.log('Assessment created successfully:', response.data);
         const detailPath = user?.role === 'teacher' ? `/teacher/marks/${response.data.id}` : `/marks/${response.data.id}`;
         navigate(detailPath);

@@ -468,7 +468,7 @@ export function ClassroomForm() {
                           {subject.name}
                         </div>
                         <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>
-                          {subject.code}
+                          {subject.subject_code || subject.code}
                         </div>
                       </div>
 

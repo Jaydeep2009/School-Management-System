@@ -166,7 +166,7 @@ export async function findStudentActiveEnrollment(
 }
 
 /**
- * Find student profile by ID
+ * Find student profile by ID (user_id)
  * SECURITY: school_id filter prevents cross-tenant access
  */
 export async function findStudentProfile(
@@ -176,9 +176,9 @@ export async function findStudentProfile(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, admission_number, first_name, last_name
+      `SELECT user_id, school_id, admission_number, first_name, last_name
        FROM student_profiles
-       WHERE id = ?
+       WHERE user_id = ?
          AND school_id = ?
        LIMIT 1`
     )
@@ -199,7 +199,7 @@ export async function findStudentProfileByUserId(
 ): Promise<StudentProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, admission_number, first_name, last_name
+      `SELECT user_id, school_id, admission_number, first_name, last_name
        FROM student_profiles
        WHERE user_id = ?
          AND school_id = ?
@@ -212,7 +212,7 @@ export async function findStudentProfileByUserId(
 }
 
 /**
- * Find teacher profile by ID
+ * Find teacher profile by ID (user_id)
  * SECURITY: school_id filter prevents cross-tenant access
  */
 export async function findTeacherProfile(
@@ -222,9 +222,9 @@ export async function findTeacherProfile(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, employee_id, first_name, last_name
+      `SELECT user_id, school_id, employee_code, first_name, last_name
        FROM teacher_profiles
-       WHERE id = ?
+       WHERE user_id = ?
          AND school_id = ?
        LIMIT 1`
     )
@@ -245,7 +245,7 @@ export async function findTeacherProfileByUserId(
 ): Promise<TeacherProfile | null> {
   const result = await db
     .prepare(
-      `SELECT id, user_id, school_id, employee_id, first_name, last_name
+      `SELECT user_id, school_id, employee_code, first_name, last_name
        FROM teacher_profiles
        WHERE user_id = ?
          AND school_id = ?

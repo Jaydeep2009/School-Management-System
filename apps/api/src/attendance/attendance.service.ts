@@ -146,6 +146,14 @@ export async function listSessions(
   // For teachers, filter by their assignments if no specific filters provided
   // Principal can see all
   
+  // Default to current academic year if not specified
+  if (!filters.academic_year_id) {
+    const currentYear = await findCurrentAcademicYear(db, tenant.schoolId);
+    if (currentYear) {
+      filters.academic_year_id = currentYear.id;
+    }
+  }
+  
   const sessions = await attendanceRepo.findSessionsWithDetails(
     db,
     tenant.schoolId,
@@ -274,7 +282,7 @@ export async function getSessionEntries(
     // Get all students enrolled in this classroom for the academic year
     const enrollments = await db
       .prepare(
-        `SELECT e.id as enrollment_id, e.student_id, 
+        `SELECT e.id as enrollment_id, e.student_id, e.status as enrollment_status, e.roll_number,
                 sp.student_code, 
                 sp.first_name || ' ' || sp.last_name as student_name
          FROM enrollments e
@@ -282,26 +290,44 @@ export async function getSessionEntries(
          WHERE e.classroom_id = ? 
            AND e.academic_year_id = ?
            AND e.status IN ('active', 'planned')
-         ORDER BY sp.student_code`
+         ORDER BY e.roll_number, sp.student_code`
       )
       .bind(session.classroom_id, session.academic_year_id)
       .all<any>();
     
     const students = enrollments.results || [];
     
-    // Create default entries (absent) for all students
+    console.log(`[Attendance] Auto-generating entries for session ${sessionId}`);
+    console.log(`[Attendance] Classroom: ${session.classroom_id}, Academic Year: ${session.academic_year_id}`);
+    console.log(`[Attendance] Found ${students.length} enrolled students`);
+    
+    if (students.length > 0) {
+      console.log(`[Attendance] First student:`, students[0]);
+      console.log(`[Attendance] Last student:`, students[students.length - 1]);
+    }
+    
+    // Create default entries (absent) for all students using batch
     const timestamp = Date.now();
-    for (const student of students) {
-      const entry: AttendanceEntry = {
-        session_id: sessionId,
-        student_id: student.student_id,
-        enrollment_id: student.enrollment_id,
-        status: 'absent', // Default to absent, teacher will mark present
-        updated_by: tenant.userId,
-        updated_at: timestamp,
-      };
-      
-      await attendanceRepo.upsertEntry(db, entry);
+    const statements = students.map(student => 
+      db.prepare(
+        `INSERT INTO attendance_entries (session_id, student_id, enrollment_id, status, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(session_id, student_id) DO UPDATE SET
+           status = excluded.status,
+           updated_by = excluded.updated_by,
+           updated_at = excluded.updated_at`
+      ).bind(
+        sessionId,
+        student.student_id,
+        student.enrollment_id,
+        'absent', // Default to absent, teacher will mark present
+        tenant.userId,
+        timestamp
+      )
+    );
+    
+    if (statements.length > 0) {
+      await db.batch(statements);
     }
     
     // Reload entries with details
@@ -377,6 +403,14 @@ export async function getStudentSummary(
     throw AttendanceError.notAuthorized('Cannot view another student\'s attendance');
   }
 
+  // Default to current academic year if not specified
+  if (!filters.academic_year_id) {
+    const currentYear = await findCurrentAcademicYear(db, tenant.schoolId);
+    if (currentYear) {
+      filters.academic_year_id = currentYear.id;
+    }
+  }
+
   const summary = await attendanceRepo.getStudentAttendanceSummary(
     db,
     studentId,
@@ -411,6 +445,14 @@ export async function getStudentSubjectWise(
   // Students can only view their own
   if (tenant.role === 'student' && tenant.userId !== studentId) {
     throw AttendanceError.notAuthorized('Cannot view another student\'s attendance');
+  }
+
+  // Default to current academic year if not specified
+  if (!filters.academic_year_id) {
+    const currentYear = await findCurrentAcademicYear(db, tenant.schoolId);
+    if (currentYear) {
+      filters.academic_year_id = currentYear.id;
+    }
   }
 
   const results = await attendanceRepo.getStudentSubjectWiseAttendance(
@@ -451,6 +493,14 @@ export async function getClassroomReport(
   
   if (!classroom) {
     throw AttendanceError.invalidClassroom();
+  }
+
+  // Default to current academic year if not specified
+  if (!filters.academic_year_id) {
+    const currentYear = await findCurrentAcademicYear(db, tenant.schoolId);
+    if (currentYear) {
+      filters.academic_year_id = currentYear.id;
+    }
   }
 
   const results = await attendanceRepo.getClassroomAttendanceSummary(

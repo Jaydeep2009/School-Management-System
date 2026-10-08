@@ -155,6 +155,85 @@ classrooms.patch(
 );
 
 /**
+ * GET /classrooms/:id/enrollments
+ * Get enrollments for a classroom
+ * Authorization: Principal and class teacher can view
+ */
+classrooms.get('/:id/enrollments', requireAuth, async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    const id = c.req.param('id')!;
+    
+    console.log('[ENROLLMENTS] Fetching for classroom:', id, 'school:', tenant.schoolId);
+    
+    // Fetch classroom to verify it exists and get academic_year_id
+    let classroom;
+    try {
+      classroom = await classroomService.getById(c.env.DB, id, tenant.schoolId);
+      console.log('[ENROLLMENTS] Classroom found:', classroom?.id);
+    } catch (err) {
+      console.error('[ENROLLMENTS] Error fetching classroom:', err);
+      throw err;
+    }
+    
+    // Authorization check
+    try {
+      await ensureCanViewClassroom(c.env.DB, tenant, {
+        classroomId: id,
+        schoolId: tenant.schoolId,
+      });
+      console.log('[ENROLLMENTS] Authorization passed');
+    } catch (err) {
+      console.error('[ENROLLMENTS] Authorization failed:', err);
+      throw err;
+    }
+    
+    // Get enrollments for this classroom
+    let enrollments;
+    try {
+      console.log('[ENROLLMENTS] Executing enrollments query...');
+      enrollments = await c.env.DB
+        .prepare(
+          `SELECT 
+             e.id,
+             e.student_id,
+             e.roll_number,
+             e.status,
+             e.joined_on,
+             e.left_on,
+             sp.student_code,
+             sp.first_name || ' ' || sp.last_name as student_name,
+             sp.gender,
+             sp.date_of_birth
+           FROM enrollments e
+           JOIN student_profiles sp ON e.student_id = sp.user_id
+           WHERE e.classroom_id = ?
+             AND e.school_id = ?
+           ORDER BY e.roll_number, sp.student_code`
+        )
+        .bind(id, tenant.schoolId)
+        .all();
+      console.log('[ENROLLMENTS] Query successful, count:', enrollments.results?.length || 0);
+    } catch (err) {
+      console.error('[ENROLLMENTS] Query failed:', err);
+      throw err;
+    }
+    
+    return c.json({ data: enrollments.results || [] }, 200);
+  } catch (error) {
+    console.error('[ENROLLMENTS] Final error handler:', error);
+    if (error instanceof classroomService.ClassroomError) {
+      return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
+    }
+    if (error instanceof Error && error.message.includes('Forbidden')) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to get classroom enrollments';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
  * DELETE /classrooms/:id
  * Delete classroom
  * Authorization: Principal only

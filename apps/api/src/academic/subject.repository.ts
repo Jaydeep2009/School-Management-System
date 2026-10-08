@@ -41,7 +41,7 @@ export async function findAll(
     status?: SubjectStatus;
   }
 ): Promise<Subject[]> {
-  let query = `SELECT id, school_id, subject_code, name, description, status, created_at, updated_at
+  let query = `SELECT id, school_id, subject_code, name as subject_name, description, status, created_at, updated_at
                FROM subjects
                WHERE school_id = ?`;
   

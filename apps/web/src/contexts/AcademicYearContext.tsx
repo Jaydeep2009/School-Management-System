@@ -45,8 +45,13 @@ export function AcademicYearProvider({ children }: AcademicYearProviderProps) {
   // Check if user is authenticated by looking for access token
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('accessToken');
-      setIsAuthenticated(!!token);
+      try {
+        const token = localStorage?.getItem('accessToken');
+        setIsAuthenticated(!!token);
+      } catch (error) {
+        console.error('Failed to check auth from localStorage:', error);
+        setIsAuthenticated(false);
+      }
     };
 
     // Check immediately

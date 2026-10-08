@@ -85,9 +85,9 @@ export function Marks() {
               Marks & Assessments
             </h1>
             <p style={{ fontSize: '14px', color: '#64748b' }}>
-              {user.role === 'principal' 
-                ? 'View assessments and marks (Read-only)' 
-                : 'Manage assessments and student marks'}
+              {user.role === 'teacher' 
+                ? 'Manage assessments and student marks'
+                : 'View and manage assessments'}
             </p>
           </div>
           {/* Only teachers can create assessments */}
@@ -108,9 +108,9 @@ export function Marks() {
                 <BarChart3 size={48} style={{ color: '#cbd5e1', marginBottom: '16px' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No assessments</h3>
                 <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
-                  {user.role === 'principal' 
-                    ? 'No assessments have been created yet' 
-                    : 'Start by creating your first assessment'}
+                  {user.role === 'teacher'
+                    ? 'Start by creating your first assessment' 
+                    : 'No assessments have been created yet'}
                 </p>
                 {user.role === 'teacher' && (
                   <Button onClick={() => navigate(getNewAssessmentPath())}>Create Assessment</Button>
@@ -119,35 +119,40 @@ export function Marks() {
             )}
             {!isLoading && !error && assessments.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {assessments.map((assessment) => (
-                  <div
-                    key={assessment.id}
-                    style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
-                    onClick={() => navigate(getAssessmentPath(assessment.id))}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>{assessment.name}</div>
-                        <div style={{ fontSize: '14px', color: '#64748b' }}>
-                          {assessment.classroom_name} - {assessment.subject_name}
+                {assessments.map((assessment) => {
+                  // Derive status from boolean flags
+                  const status = assessment.is_locked ? 'locked' : assessment.is_published ? 'published' : 'draft';
+                  
+                  return (
+                    <div
+                      key={assessment.id}
+                      style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}
+                      onClick={() => navigate(getAssessmentPath(assessment.id))}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>{assessment.name}</div>
+                          <div style={{ fontSize: '14px', color: '#64748b' }}>
+                            {assessment.classroom_name} - {assessment.subject_name}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#64748b' }}>
+                            Max Marks: {assessment.max_marks}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '14px', color: '#64748b' }}>
-                          Max Marks: {assessment.max_marks}
-                        </div>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          background: status === 'published' ? '#dcfce7' : status === 'locked' ? '#f1f5f9' : '#fef3c7',
+                          color: status === 'published' ? '#166534' : status === 'locked' ? '#64748b' : '#92400e',
+                        }}>
+                          {status}
+                        </span>
                       </div>
-                      <span style={{
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        background: assessment.status === 'published' ? '#dcfce7' : assessment.status === 'locked' ? '#f1f5f9' : '#fef3c7',
-                        color: assessment.status === 'published' ? '#166534' : assessment.status === 'locked' ? '#64748b' : '#92400e',
-                      }}>
-                        {assessment.status}
-                      </span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

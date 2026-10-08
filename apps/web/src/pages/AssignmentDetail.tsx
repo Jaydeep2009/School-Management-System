@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '../components/layout/Layout';
+import { TeacherLayout } from '../components/layout/TeacherLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -127,21 +127,21 @@ export function AssignmentDetail() {
 
   if (isLoading) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
         <div style={{ padding: '32px' }}>
           <Skeleton height="300px" />
         </div>
-      </Layout>
+      </TeacherLayout>
     );
   }
 
   if (error || !assignment) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
         <div style={{ padding: '32px' }}>
           <ErrorState message={error || 'Assignment not found'} onRetry={loadAssignment} />
         </div>
-      </Layout>
+      </TeacherLayout>
     );
   }
 
@@ -152,11 +152,11 @@ export function AssignmentDetail() {
   const attachments = assignment.attachments || [];
 
   return (
-    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+    <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
       <div style={{ padding: '32px', maxWidth: '1000px', margin: '0 auto' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
           <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
-            <Button variant="secondary" onClick={() => navigate('/assignments')}>
+            <Button variant="secondary" onClick={() => navigate('/teacher/assignments')}>
               <ArrowLeft size={16} />
             </Button>
             <div>
@@ -209,7 +209,7 @@ export function AssignmentDetail() {
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             {isDraft && (
-              <Button variant="secondary" onClick={() => navigate(`/assignments/${id}/edit`)}>
+              <Button variant="secondary" onClick={() => navigate(`/teacher/assignments/${id}/edit`)}>
                 <Edit size={16} style={{ marginRight: '8px' }} />
                 Edit
               </Button>
@@ -331,7 +331,7 @@ export function AssignmentDetail() {
           </div>
         </Card>
       </div>
-    </Layout>
+    </TeacherLayout>
   );
 }
 

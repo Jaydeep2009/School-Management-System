@@ -35,7 +35,7 @@ studentMe.get('/', requireAuth, async (c) => {
 
     const db = c.env.DB;
     
-    // Get student profile with enrollment info
+    // Get student profile with enrollment info from CURRENT academic year
     const student = await db
       .prepare(`
         SELECT 
@@ -66,9 +66,11 @@ studentMe.get('/', requireAuth, async (c) => {
           sch.name as school_name
         FROM student_profiles sp
         LEFT JOIN schools sch ON sp.school_id = sch.id
-        LEFT JOIN enrollments e ON sp.user_id = e.student_id AND e.status = 'active'
+        LEFT JOIN academic_years ay ON ay.school_id = sp.school_id AND ay.status = 'current'
+        LEFT JOIN enrollments e ON sp.user_id = e.student_id 
+          AND e.academic_year_id = ay.id 
+          AND e.status IN ('active', 'planned')
         LEFT JOIN classrooms c ON e.classroom_id = c.id
-        LEFT JOIN academic_years ay ON e.academic_year_id = ay.id
         WHERE sp.user_id = ? AND sp.school_id = ?
         LIMIT 1
       `)
@@ -101,19 +103,31 @@ studentMe.get('/attendance', requireAuth, async (c) => {
 
     const db = c.env.DB;
     
-    // Get current enrollment
+    // Get current academic year
+    const currentYear = await db
+      .prepare(`SELECT id FROM academic_years WHERE school_id = ? AND status = 'current' LIMIT 1`)
+      .bind(tenant.schoolId)
+      .first<{ id: string }>();
+
+    if (!currentYear) {
+      return c.json({ error: 'No current academic year set' }, 404);
+    }
+    
+    // Get enrollment for current academic year
     const enrollment = await db
       .prepare(`
         SELECT e.id, e.academic_year_id, e.classroom_id
         FROM enrollments e
-        WHERE e.student_id = ? AND e.school_id = ? AND e.status = 'active'
+        WHERE e.student_id = ? AND e.school_id = ? 
+          AND e.academic_year_id = ?
+          AND e.status IN ('active', 'planned')
         LIMIT 1
       `)
-      .bind(tenant.userId, tenant.schoolId)
+      .bind(tenant.userId, tenant.schoolId, currentYear.id)
       .first<{ id: string; academic_year_id: string; classroom_id: string }>();
 
     if (!enrollment) {
-      return c.json({ error: 'No active enrollment found' }, 404);
+      return c.json({ error: 'No enrollment found for current academic year' }, 404);
     }
 
     // Get overall attendance (total present / total sessions)
@@ -146,7 +160,7 @@ studentMe.get('/attendance', requireAuth, async (c) => {
         SELECT 
           s.id as subject_id,
           s.name as subject_name,
-          s.code as subject_code,
+          s.subject_code as subject_code,
           COUNT(*) as total_sessions,
           SUM(CASE WHEN ae.status = 'present' THEN 1 ELSE 0 END) as present_count,
           SUM(CASE WHEN ae.status = 'absent' THEN 1 ELSE 0 END) as absent_count,
@@ -158,7 +172,7 @@ studentMe.get('/attendance', requireAuth, async (c) => {
         WHERE ae.student_id = ?
           AND asess.school_id = ?
           AND asess.academic_year_id = ?
-        GROUP BY s.id, s.name, s.code
+        GROUP BY s.id, s.name, s.subject_code
         ORDER BY s.name
       `)
       .bind(tenant.userId, tenant.schoolId, enrollment.academic_year_id)
@@ -205,19 +219,31 @@ studentMe.get('/marks', requireAuth, async (c) => {
 
     const db = c.env.DB;
     
-    // Get current enrollment
+    // Get current academic year
+    const currentYear = await db
+      .prepare(`SELECT id FROM academic_years WHERE school_id = ? AND status = 'current' LIMIT 1`)
+      .bind(tenant.schoolId)
+      .first<{ id: string }>();
+
+    if (!currentYear) {
+      return c.json({ error: 'No current academic year set' }, 404);
+    }
+    
+    // Get enrollment for current academic year
     const enrollment = await db
       .prepare(`
         SELECT e.id, e.academic_year_id, e.classroom_id
         FROM enrollments e
-        WHERE e.student_id = ? AND e.school_id = ? AND e.status = 'active'
+        WHERE e.student_id = ? AND e.school_id = ? 
+          AND e.academic_year_id = ?
+          AND e.status IN ('active', 'planned')
         LIMIT 1
       `)
-      .bind(tenant.userId, tenant.schoolId)
+      .bind(tenant.userId, tenant.schoolId, currentYear.id)
       .first<{ id: string; academic_year_id: string; classroom_id: string }>();
 
     if (!enrollment) {
-      return c.json({ error: 'No active enrollment found' }, 404);
+      return c.json({ error: 'No enrollment found for current academic year' }, 404);
     }
 
     // Get published marks grouped by subject
@@ -226,7 +252,7 @@ studentMe.get('/marks', requireAuth, async (c) => {
         SELECT 
           s.id as subject_id,
           s.name as subject_name,
-          s.code as subject_code,
+          s.subject_code as subject_code,
           a.id as assessment_id,
           a.name as assessment_name,
           a.assessment_type,
@@ -307,19 +333,31 @@ studentMe.get('/assignments', requireAuth, async (c) => {
     const db = c.env.DB;
     const subjectId = c.req.query('subject_id');
     
-    // Get current enrollment
+    // Get current academic year
+    const currentYear = await db
+      .prepare(`SELECT id FROM academic_years WHERE school_id = ? AND status = 'current' LIMIT 1`)
+      .bind(tenant.schoolId)
+      .first<{ id: string }>();
+
+    if (!currentYear) {
+      return c.json({ error: 'No current academic year set' }, 404);
+    }
+    
+    // Get enrollment for current academic year
     const enrollment = await db
       .prepare(`
         SELECT e.id, e.academic_year_id, e.classroom_id
         FROM enrollments e
-        WHERE e.student_id = ? AND e.school_id = ? AND e.status = 'active'
+        WHERE e.student_id = ? AND e.school_id = ? 
+          AND e.academic_year_id = ?
+          AND e.status IN ('active', 'planned')
         LIMIT 1
       `)
-      .bind(tenant.userId, tenant.schoolId)
+      .bind(tenant.userId, tenant.schoolId, currentYear.id)
       .first<{ id: string; academic_year_id: string; classroom_id: string }>();
 
     if (!enrollment) {
-      return c.json({ error: 'No active enrollment found' }, 404);
+      return c.json({ error: 'No enrollment found for current academic year' }, 404);
     }
 
     // Build query
@@ -330,7 +368,7 @@ studentMe.get('/assignments', requireAuth, async (c) => {
         a.description,
         a.subject_id,
         s.name as subject_name,
-        s.code as subject_code,
+        s.subject_code as subject_code,
         a.assigned_on,
         a.due_date,
         a.attachment_url,
@@ -378,19 +416,31 @@ studentMe.get('/fees', requireAuth, async (c) => {
 
     const db = c.env.DB;
     
-    // Get current enrollment
+    // Get current academic year
+    const currentYear = await db
+      .prepare(`SELECT id FROM academic_years WHERE school_id = ? AND status = 'current' LIMIT 1`)
+      .bind(tenant.schoolId)
+      .first<{ id: string }>();
+
+    if (!currentYear) {
+      return c.json({ error: 'No current academic year set' }, 404);
+    }
+    
+    // Get enrollment for current academic year
     const enrollment = await db
       .prepare(`
         SELECT e.id, e.academic_year_id
         FROM enrollments e
-        WHERE e.student_id = ? AND e.school_id = ? AND e.status = 'active'
+        WHERE e.student_id = ? AND e.school_id = ? 
+          AND e.academic_year_id = ?
+          AND e.status IN ('active', 'planned')
         LIMIT 1
       `)
-      .bind(tenant.userId, tenant.schoolId)
+      .bind(tenant.userId, tenant.schoolId, currentYear.id)
       .first<{ id: string; academic_year_id: string }>();
 
     if (!enrollment) {
-      return c.json({ error: 'No active enrollment found' }, 404);
+      return c.json({ error: 'No enrollment found for current academic year' }, 404);
     }
 
     // Get total charged (sum of all fee charges for this academic year)

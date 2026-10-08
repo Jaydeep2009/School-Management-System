@@ -23,14 +23,19 @@ export class ApiService {
     this.baseUrl = baseUrl;
     
     // Initialize tokens from localStorage if available
-    const storedAccessToken = localStorage.getItem('accessToken') || localStorage.getItem('superAdminToken');
-    const storedRefreshToken = localStorage.getItem('refreshToken');
-    
-    if (storedAccessToken) {
-      this.accessToken = storedAccessToken;
-    }
-    if (storedRefreshToken) {
-      this.refreshToken = storedRefreshToken;
+    try {
+      const storedAccessToken = localStorage?.getItem('accessToken') || localStorage?.getItem('superAdminToken');
+      const storedRefreshToken = localStorage?.getItem('refreshToken');
+      
+      if (storedAccessToken) {
+        this.accessToken = storedAccessToken;
+      }
+      if (storedRefreshToken) {
+        this.refreshToken = storedRefreshToken;
+      }
+    } catch (error) {
+      console.error('Failed to access localStorage:', error);
+      // Continue without tokens
     }
   }
 
@@ -254,6 +259,7 @@ export class ApiService {
   async getMe() {
     return this.request<{
       userId: string;
+      loginId: string;
       role: string;
       schoolId: string;
       sessionId: string;
@@ -487,6 +493,12 @@ export class ApiService {
     });
   }
 
+  async setCurrentAcademicYear(id: string) {
+    return this.request<{ data: any; message: string }>(`/academic-years/${id}/set-current`, {
+      method: 'POST',
+    });
+  }
+
   // Birthdays
   async getUpcomingBirthdays(params?: { thisWeek?: boolean; month?: number }) {
     const query = params ? '?' + new URLSearchParams(
@@ -596,7 +608,7 @@ export class ApiService {
 
   async updateAssessment(id: string, data: any) {
     return this.request<{ data: any }>(`/marks/assessments/${id}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -609,6 +621,12 @@ export class ApiService {
 
   async lockAssessment(id: string) {
     return this.request<{ data: any }>(`/marks/assessments/${id}/lock`, {
+      method: 'POST',
+    });
+  }
+
+  async unlockAssessment(id: string) {
+    return this.request<{ data: any }>(`/marks/assessments/${id}/unlock`, {
       method: 'POST',
     });
   }
@@ -1458,6 +1476,27 @@ export class ApiService {
   }
 
   /**
+   * Delete school and all associated data (DANGEROUS OPERATION)
+   * DELETE /schools/:id
+   */
+  async deleteSchool(schoolId: string, confirmSchoolName: string, confirmationCode: string) {
+    return this.request<{ 
+      message: string;
+      data: {
+        schoolId: string;
+        schoolName: string;
+        deletedCounts: Record<string, number>;
+      };
+    }>(`/schools/${schoolId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        confirmSchoolName,
+        confirmationCode,
+      }),
+    });
+  }
+
+  /**
    * Create Principal for school
    * POST /schools/:id/principal
    */
@@ -1470,6 +1509,24 @@ export class ApiService {
     }
   ) {
     return this.request<{ data: any }>(`/schools/${schoolId}/principal`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Change Principal for school
+   * POST /schools/:id/principal/change
+   */
+  async changePrincipal(
+    schoolId: string,
+    data: {
+      full_name: string;
+      date_of_birth: string;
+      gender: 'male' | 'female' | 'other';
+    }
+  ) {
+    return this.request<{ data: any }>(`/schools/${schoolId}/principal/change`, {
       method: 'POST',
       body: JSON.stringify(data),
     });

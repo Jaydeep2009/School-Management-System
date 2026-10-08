@@ -86,16 +86,9 @@ export function TeacherDashboard() {
       }
       setError(null);
 
-      // Load teacher's teaching assignments
+      // Load teacher's teaching assignments (already filtered by current year in backend)
       const teachingsRes = await apiService.getMyTeaching();
-      let assignments = teachingsRes.data || [];
-
-      // Filter by current academic year if available
-      if (selectedYear) {
-        assignments = assignments.filter(
-          (a: TeachingAssignment) => a.academic_year_id === selectedYear.id
-        );
-      }
+      const assignments = teachingsRes.data || [];
       setTeachings(assignments);
 
       // Find if teacher is a class teacher (check for truthy value - can be 1 or true)

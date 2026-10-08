@@ -260,11 +260,13 @@ export async function findEntriesBySessionWithDetails(
       `SELECT 
          e.session_id, e.student_id, e.enrollment_id, e.status, e.updated_by, e.updated_at,
          sp.student_code,
-         sp.first_name || ' ' || sp.last_name as student_name
+         sp.first_name || ' ' || sp.last_name as student_name,
+         enr.roll_number
        FROM attendance_entries e
        JOIN student_profiles sp ON e.student_id = sp.user_id
+       LEFT JOIN enrollments enr ON e.enrollment_id = enr.id
        WHERE e.session_id = ?
-       ORDER BY sp.student_code`
+       ORDER BY enr.roll_number, sp.student_code`
     )
     .bind(sessionId)
     .all<AttendanceEntryWithStudent>();

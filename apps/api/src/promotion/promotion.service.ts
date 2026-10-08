@@ -129,22 +129,25 @@ export async function promoteStudent(
     throw PromotionError.cannotPromoteGraduated();
   }
 
-  // Check if student already has enrollment in new academic year
-  const existingEnrollment = await db
-    .prepare(
-      `SELECT id FROM enrollments 
-       WHERE student_id = ? 
-         AND academic_year_id = ? 
-         AND school_id = ?`
-    )
-    .bind(enrollment.student_id, request.new_academic_year_id, tenant.schoolId)
-    .first();
+  // For actions that create new enrollments, check if student already has enrollment in new academic year
+  if (request.action === 'promote' || request.action === 'retain') {
+    const existingEnrollment = await db
+      .prepare(
+        `SELECT id, status FROM enrollments 
+         WHERE student_id = ? 
+           AND academic_year_id = ? 
+           AND school_id = ?`
+      )
+      .bind(enrollment.student_id, request.new_academic_year_id, tenant.schoolId)
+      .first<{ id: string; status: string }>();
 
-  if (existingEnrollment) {
-    throw PromotionError.alreadyPromoted(request.enrollment_id);
+    if (existingEnrollment) {
+      throw PromotionError.alreadyPromoted(request.enrollment_id);
+    }
   }
 
   const now = Date.now();
+  const nowDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format for joined_on
 
   // Handle different promotion actions
   switch (request.action) {
@@ -154,59 +157,62 @@ export async function promoteStudent(
         throw new PromotionError('new_classroom_id is required for promote/retain actions', 'MISSING_CLASSROOM', 400);
       }
 
-      // Create new enrollment in new academic year
+      // Use batch operation to ensure both INSERT and UPDATE succeed together
       const newEnrollmentId = crypto.randomUUID();
-      await db
-        .prepare(
+      const batch = [
+        // Create new enrollment in new academic year
+        db.prepare(
           `INSERT INTO enrollments (
              id, student_id, classroom_id, academic_year_id, school_id,
              status, joined_on, created_at, updated_at
            ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`
-        )
-        .bind(
+        ).bind(
           newEnrollmentId,
           enrollment.student_id,
           request.new_classroom_id,
           request.new_academic_year_id,
           tenant.schoolId,
-          now,
+          nowDate,
           now,
           now
-        )
-        .run();
-
-      // Update old enrollment to completed
-      await db
-        .prepare(
+        ),
+        // Update old enrollment to completed with left_on date
+        db.prepare(
           `UPDATE enrollments 
-           SET status = 'completed', updated_at = ? 
+           SET status = 'completed', left_on = ?, updated_at = ? 
            WHERE id = ?`
-        )
-        .bind(now, request.enrollment_id)
-        .run();
+        ).bind(nowDate, now, request.enrollment_id)
+      ];
+
+      const results = await db.batch(batch);
+      
+      // Verify both operations succeeded
+      if (!results[0].success || !results[1].success) {
+        throw new PromotionError(`Failed to complete promotion transaction`, 'TRANSACTION_FAILED', 500);
+      }
       break;
 
     case 'graduate':
-      // Update enrollment status to graduated
+      // Update enrollment status to graduated with left_on date
       await db
         .prepare(
           `UPDATE enrollments 
-           SET status = 'graduated', updated_at = ? 
+           SET status = 'graduated', left_on = ?, updated_at = ? 
            WHERE id = ?`
         )
-        .bind(now, request.enrollment_id)
+        .bind(nowDate, now, request.enrollment_id)
         .run();
       break;
 
     case 'dropout':
-      // Update enrollment status to inactive
+      // Update enrollment status to inactive with left_on date
       await db
         .prepare(
           `UPDATE enrollments 
-           SET status = 'inactive', updated_at = ? 
+           SET status = 'inactive', left_on = ?, updated_at = ? 
            WHERE id = ?`
         )
-        .bind(now, request.enrollment_id)
+        .bind(nowDate, now, request.enrollment_id)
         .run();
       break;
 
@@ -377,9 +383,13 @@ export async function bulkPromoteStudents(
     .bind(...bindings)
     .all<{ enrollment_id: string; student_id: string; student_name: string }>();
 
+  console.log(`[Promotion] Found ${enrollments.results?.length || 0} students to process`);
+  console.log(`[Promotion] Action: ${request.action}, Target Classroom: ${targetClassroomId}`);
+
   // Process each student
   for (const enrollment of enrollments.results || []) {
     try {
+      console.log(`[Promotion] Processing student: ${enrollment.student_name} (${enrollment.student_id})`);
       await promoteStudent(
         db,
         {
@@ -393,6 +403,7 @@ export async function bulkPromoteStudents(
       );
       successCount++;
       promotedEnrollments.push(enrollment.enrollment_id);
+      console.log(`[Promotion] Successfully promoted: ${enrollment.student_name}`);
     } catch (error) {
       failedCount++;
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';

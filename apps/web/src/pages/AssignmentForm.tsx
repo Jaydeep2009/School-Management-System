@@ -4,7 +4,7 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '../components/layout/Layout';
+import { TeacherLayout } from '../components/layout/TeacherLayout';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -125,10 +125,10 @@ export function AssignmentForm() {
 
       if (isEditMode && id) {
         await apiService.updateAssignment(id, submitData);
-        navigate(`/assignments/${id}`);
+        navigate(`/teacher/assignments/${id}`);
       } else {
         const response = await apiService.createAssignment(submitData);
-        navigate(`/assignments/${response.data.id}`);
+        navigate(`/teacher/assignments/${response.data.id}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save assignment');
@@ -145,20 +145,20 @@ export function AssignmentForm() {
 
   if (!selectedYear) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
         <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>
           <p style={{ fontSize: '16px', marginBottom: '8px' }}>Please select an academic year</p>
           <p style={{ fontSize: '14px' }}>Use the dropdown in the header to select a year</p>
         </div>
-      </Layout>
+      </TeacherLayout>
     );
   }
 
   if (isLoading) {
     return (
-      <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+      <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
         <div style={{ padding: '32px', textAlign: 'center' }}>Loading...</div>
-      </Layout>
+      </TeacherLayout>
     );
   }
 
@@ -167,10 +167,10 @@ export function AssignmentForm() {
   );
 
   return (
-    <Layout schoolName={'SMS'} principalName={"User"} onLogout={logout}>
+    <TeacherLayout schoolName={'SMS'} principalName="Teacher" onLogout={logout}>
       <div style={{ padding: '32px', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Button variant="secondary" onClick={() => navigate('/assignments')}>
+          <Button variant="secondary" onClick={() => navigate('/teacher/assignments')}>
             <ArrowLeft size={16} />
           </Button>
           <div>
@@ -353,7 +353,7 @@ export function AssignmentForm() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => navigate(isEditMode && id ? `/assignments/${id}` : '/assignments')}
+                  onClick={() => navigate(isEditMode && id ? `/teacher/assignments/${id}` : '/teacher/assignments')}
                   disabled={isSubmitting}
                 >
                   Cancel
@@ -363,7 +363,7 @@ export function AssignmentForm() {
           </form>
         </Card>
       </div>
-    </Layout>
+    </TeacherLayout>
   );
 }
 

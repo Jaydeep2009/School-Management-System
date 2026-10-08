@@ -11,7 +11,9 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { SchoolStatusBadge } from '../components/school/SchoolStatusBadge';
 import { ProvisionPrincipalDialog } from '../components/school/ProvisionPrincipalDialog';
+import { ChangePrincipalDialog } from '../components/school/ChangePrincipalDialog';
 import { PrincipalCredentialsDialog } from '../components/school/PrincipalCredentialsDialog';
+import { DeleteSchoolDialog } from '../components/school/DeleteSchoolDialog';
 import { apiService } from '../services/api';
 import type { School, PrincipalCredentials } from '../types/super-admin';
 
@@ -23,9 +25,11 @@ export function SchoolDetails() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showProvisionDialog, setShowProvisionDialog] = useState(false);
+  const [showChangeDialog, setShowChangeDialog] = useState(false);
   const [principalCredentials, setPrincipalCredentials] = useState<PrincipalCredentials | null>(
     null
   );
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -118,6 +122,14 @@ export function SchoolDetails() {
     setShowProvisionDialog(false);
     setPrincipalCredentials(credentials);
     loadSchool();
+  };
+
+  const handleDeleteConfirm = async (confirmSchoolName: string, confirmationCode: string) => {
+    if (!id) return;
+
+    await apiService.deleteSchool(id, confirmSchoolName, confirmationCode);
+    alert(`School "${school?.name}" and all associated data has been permanently deleted.`);
+    navigate('/super-admin/schools');
   };
 
   const formatDate = (dateString: string) => {
@@ -285,6 +297,86 @@ export function SchoolDetails() {
 
           {/* Actions Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Principal Information */}
+            <Card>
+              <div style={{ padding: '20px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '12px' }}>
+                  Principal
+                </h3>
+                {school.principal ? (
+                  <>
+                    <div style={{ display: 'grid', gap: '12px', marginBottom: '16px' }}>
+                      <div>
+                        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>
+                          Login ID
+                        </p>
+                        <p style={{ fontSize: '14px', color: '#0f172a', fontFamily: 'monospace' }}>
+                          {school.principal.login_id}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>
+                          Status
+                        </p>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            fontSize: '12px',
+                            borderRadius: '4px',
+                            backgroundColor:
+                              school.principal.status === 'active' ? '#dcfce7' : '#fee2e2',
+                            color: school.principal.status === 'active' ? '#166534' : '#991b1b',
+                          }}
+                        >
+                          {school.principal.status}
+                        </span>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>
+                          Created
+                        </p>
+                        <p style={{ fontSize: '14px', color: '#0f172a' }}>
+                          {formatDate(String(school.principal.created_at))}
+                        </p>
+                      </div>
+                      {school.principal.last_login_at && (
+                        <div>
+                          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '2px' }}>
+                            Last Login
+                          </p>
+                          <p style={{ fontSize: '14px', color: '#0f172a' }}>
+                            {formatDate(String(school.principal.last_login_at))}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      onClick={() => setShowChangeDialog(true)}
+                      disabled={school.status === 'archived'}
+                    >
+                      Change Principal
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>
+                      No principal account found. Create one to enable school management.
+                    </p>
+                    <Button
+                      fullWidth
+                      onClick={() => setShowProvisionDialog(true)}
+                      disabled={school.status === 'archived'}
+                    >
+                      Provision Principal
+                    </Button>
+                  </>
+                )}
+              </div>
+            </Card>
+
             {/* user Provisioning */}
             <Card>
               <div style={{ padding: '20px' }}>
@@ -359,11 +451,35 @@ export function SchoolDetails() {
                 </div>
               </div>
             </Card>
+
+            {/* Danger Zone */}
+            {school.status !== 'active' && (
+              <Card>
+                <div style={{ padding: '20px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#dc2626', marginBottom: '12px' }}>
+                    Danger Zone
+                  </h3>
+                  <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>
+                    Permanently delete this school and all associated data. This action cannot be undone.
+                  </p>
+                  <Button
+                    fullWidth
+                    onClick={() => setShowDeleteDialog(true)}
+                    style={{
+                      background: '#dc2626',
+                      color: '#ffffff',
+                    }}
+                  >
+                    Delete School
+                  </Button>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Provision user Dialog */}
+      {/* Provision Principal Dialog */}
       {showProvisionDialog && (
         <ProvisionPrincipalDialog
           schoolId={id!}
@@ -373,11 +489,37 @@ export function SchoolDetails() {
         />
       )}
 
-      {/* user Credentials Dialog */}
+      {/* Change Principal Dialog */}
+      {showChangeDialog && school?.principal && (
+        <ChangePrincipalDialog
+          schoolId={id!}
+          schoolName={school.name}
+          currentPrincipalLogin={school.principal.login_id}
+          open={showChangeDialog}
+          onClose={() => setShowChangeDialog(false)}
+          onSuccess={(credentials) => {
+            setPrincipalCredentials(credentials);
+            loadSchool(); // Reload school to show new principal
+          }}
+        />
+      )}
+
+      {/* Principal Credentials Dialog */}
       {principalCredentials && (
         <PrincipalCredentialsDialog
           credentials={principalCredentials}
           onClose={() => setPrincipalCredentials(null)}
+        />
+      )}
+
+      {/* Delete School Dialog */}
+      {showDeleteDialog && school && (
+        <DeleteSchoolDialog
+          schoolId={id!}
+          schoolName={school.name}
+          schoolCode={school.code}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setShowDeleteDialog(false)}
         />
       )}
     </SuperAdminLayout>

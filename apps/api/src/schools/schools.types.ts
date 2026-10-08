@@ -34,6 +34,24 @@ export interface SchoolWithSettings extends Omit<School, 'settings'> {
 }
 
 /**
+ * Principal details
+ */
+export interface PrincipalDetails {
+  user_id: string;
+  login_id: string;
+  status: string;
+  created_at: number;
+  last_login_at: number | null;
+}
+
+/**
+ * School with settings and principal details
+ */
+export interface SchoolWithDetails extends SchoolWithSettings {
+  principal: PrincipalDetails | null;
+}
+
+/**
  * Create school request
  */
 export interface CreateSchoolRequest {

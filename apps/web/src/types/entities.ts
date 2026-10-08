@@ -167,13 +167,17 @@ export interface Assessment {
   classroom_id: string;
   subject_id: string;
   name: string;
-  assessment_type: 'exam' | 'test' | 'assignment' | 'project' | 'practical';
+  assessment_type?: 'exam' | 'test' | 'assignment' | 'project' | 'practical';
   max_marks: number;
   weightage?: number;
   assessment_date?: string;
-  status: 'draft' | 'published' | 'locked';
+  held_on?: string;
+  status?: 'draft' | 'published' | 'locked';
+  is_published: boolean;
+  is_locked: boolean;
   classroom_name?: string;
   subject_name?: string;
+  created_by: string;
   created_at: string;
   updated_at: string;
 }

@@ -57,7 +57,7 @@ export function useAuth() {
       // Create user object from response
       const user: User = {
         id: meResponse.userId,
-        loginId: '', // Not returned by /auth/me
+        loginId: meResponse.loginId,
         role: meResponse.role as UserRole,
         schoolId: meResponse.schoolId,
         mustChangePassword: false,

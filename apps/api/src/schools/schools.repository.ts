@@ -254,3 +254,38 @@ export async function hasActivePrincipal(
 
   return (result?.count || 0) > 0;
 }
+
+
+/**
+ * Get principal details for a school
+ */
+export async function findPrincipalBySchoolId(
+  db: D1Database,
+  schoolId: string
+): Promise<{
+  user_id: string;
+  login_id: string;
+  status: string;
+  created_at: number;
+  last_login_at: number | null;
+} | null> {
+  const result = await db
+    .prepare(
+      `SELECT id as user_id, login_id, status, created_at, last_login_at
+       FROM users
+       WHERE school_id = ?
+         AND role = 'principal'
+       ORDER BY created_at DESC
+       LIMIT 1`
+    )
+    .bind(schoolId)
+    .first<{
+      user_id: string;
+      login_id: string;
+      status: string;
+      created_at: number;
+      last_login_at: number | null;
+    }>();
+
+  return result || null;
+}

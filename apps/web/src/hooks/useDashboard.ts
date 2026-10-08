@@ -81,7 +81,7 @@ export function useDashboard(schoolId: string, academicYearId: string) {
       // Calculate attendance stats for today
       const today = new Date().toISOString().split('T')[0];
       const todaySessions = (attendanceSessions as any[]).filter((session: any) => 
-        session.date.startsWith(today)
+        session.session_date?.startsWith(today)
       );
 
       // Calculate present/absent from today's sessions
@@ -170,8 +170,8 @@ export function useDashboard(schoolId: string, academicYearId: string) {
           id: currentAcademicYear.id,
           label: currentAcademicYear.label,
           status: currentAcademicYear.status as 'upcoming' | 'current' | 'closed',
-          startDate: new Date(currentAcademicYear.start_date),
-          endDate: new Date(currentAcademicYear.end_date),
+          startDate: new Date(currentAcademicYear.starts_on),
+          endDate: new Date(currentAcademicYear.ends_on),
           totalClasses: (classrooms as any[]).length,
           totalStudents: (students as any[]).length,
         } : undefined,

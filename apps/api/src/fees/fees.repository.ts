@@ -437,7 +437,7 @@ export async function createFeePaymentWithReceipt(
     throw new Error('Failed to generate receipt number');
   }
 
-  const receiptNo = counterResult.last_number.toString().padStart(6, '0');
+  const receiptNo = `REC/${financialYear}/${counterResult.last_number.toString().padStart(6, '0')}`;
 
   // Step 2: Insert payment with generated receipt number
   // If this fails, receipt number is skipped (gap) - acceptable

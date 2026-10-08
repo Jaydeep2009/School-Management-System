@@ -73,7 +73,7 @@ async function getSubject(
 ) {
   const result = await db
     .prepare(
-      `SELECT id, school_id, code, name, status
+      `SELECT id, school_id, subject_code, name, status
        FROM subjects
        WHERE id = ?
          AND school_id = ?
@@ -83,7 +83,7 @@ async function getSubject(
     .first<{
       id: string;
       school_id: string;
-      code: string;
+      subject_code: string;
       name: string;
       status: string;
     }>();

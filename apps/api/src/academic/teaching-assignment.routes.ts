@@ -31,15 +31,32 @@ teachingAssignments.get('/me/teaching', requireAuth, requireTeacher(), async (c)
   try {
     const tenant = requireSchoolTenant(c);
     
-    // Get teaching assignments for current teacher
+    // Get current academic year
+    const currentYear = await c.env.DB
+      .prepare('SELECT id FROM academic_years WHERE school_id = ? AND status = ? LIMIT 1')
+      .bind(tenant.schoolId, 'current')
+      .first<{ id: string }>();
+    
+    if (!currentYear) {
+      return c.json({ error: 'No current academic year set' }, 404);
+    }
+    
+    // Get teaching assignments for current teacher in current academic year
     const assignments = await teachingAssignmentService.list(c.env.DB, tenant.schoolId, {
-      teacher_id: tenant.userId
+      teacher_id: tenant.userId,
+      academic_year_id: currentYear.id
     });
     
-    // Check which classroom the teacher is class teacher of
+    // Check which classroom the teacher is class teacher of in current year
     const classrooms = await c.env.DB
-      .prepare('SELECT id, classroom_code FROM classrooms WHERE school_id = ? AND class_teacher_id = ?')
-      .bind(tenant.schoolId, tenant.userId)
+      .prepare(`
+        SELECT c.id, c.classroom_code 
+        FROM classrooms c
+        WHERE c.school_id = ? 
+          AND c.class_teacher_id = ?
+          AND c.academic_year_id = ?
+      `)
+      .bind(tenant.schoolId, tenant.userId, currentYear.id)
       .all();
     
     const classTeacherClassroomIds = new Set(classrooms.results?.map((c: any) => c.id) || []);

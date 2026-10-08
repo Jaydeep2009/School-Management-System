@@ -216,7 +216,36 @@ academicYears.post('/:id/close', requireAuth, requirePrincipal(), async (c) => {
   }
 });
 
-export default academicYears;
+/**
+ * POST /academic-years/:id/set-current
+ * Set academic year as current (manual override)
+ * Authorization: Principal only
+ * 
+ * This allows principal to manually control which academic year's data is displayed
+ * Automatically closes any existing current year
+ */
+academicYears.post('/:id/set-current', requireAuth, requirePrincipal(), async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    
+    const id = c.req.param('id')!;
+    const year = await academicYearService.setAsCurrent(c.env.DB, id, tenant.schoolId);
+    
+    // Audit log
+    await logAudit(c.env.DB, tenant, 'set_as_current', 'academic_year', id, null, year);
+    
+    return c.json({ 
+      data: year, 
+      message: 'Academic year set as current. All users will now see this year\'s data.' 
+    }, 200);
+  } catch (error) {
+    if (error instanceof academicYearService.AcademicYearError) {
+      return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
+    }
+    const message = error instanceof Error ? error.message : 'Failed to set academic year as current';
+    return c.json({ error: message }, 500);
+  }
+});
 
 /**
  * GET /academic-years/:id/export
@@ -256,3 +285,5 @@ academicYears.get('/:id/export', requireAuth, requirePrincipal(), async (c) => {
     return c.json({ error: message }, 500);
   }
 });
+
+export default academicYears;

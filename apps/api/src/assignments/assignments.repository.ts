@@ -51,8 +51,8 @@ export async function findAssignmentWithDetails(
         a.created_by, a.title, a.description, a.due_at, a.status,
         a.created_at, a.updated_at,
         s.name as subject_name,
-        c.name as classroom_name,
-        c.section as classroom_section,
+        c.grade_name || ' ' || c.division_name as classroom_name,
+        c.division_name as classroom_section,
         COUNT(aa.id) as attachment_count
        FROM assignments a
        INNER JOIN subjects s ON a.subject_id = s.id
@@ -90,8 +90,8 @@ export async function findAssignments(
       a.created_by, a.title, a.description, a.due_at, a.status,
       a.created_at, a.updated_at,
       s.name as subject_name,
-      c.name as classroom_name,
-      c.section as classroom_section,
+      c.grade_name || ' ' || c.division_name as classroom_name,
+      c.division_name as classroom_section,
       COUNT(aa.id) as attachment_count
     FROM assignments a
     INNER JOIN subjects s ON a.subject_id = s.id

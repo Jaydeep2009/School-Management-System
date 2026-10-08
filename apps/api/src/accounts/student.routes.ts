@@ -2,6 +2,7 @@
  * Student Routes
  * 
  * GET /students - List students
+ * GET /students/export - Export student list as CSV (principal only)
  * GET /students/:id - Get student by ID
  * POST /students - Create student (principal only)
  * POST /students/bulk-provision - Bulk create students (principal only)
@@ -16,6 +17,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import * as studentService from './student.service';
 import * as bulkProvisionService from './bulk-provision.service';
+import * as credentialsExportService from './credentials-export.service';
 import * as studentSchemas from './accounts.schemas';
 import { requireAuth, requireSchoolTenant, getRequestIdFromContext, type AuthContext } from '../auth/auth.middleware';
 import { requirePrincipal } from '../auth/role.middleware';
@@ -54,6 +56,35 @@ students.get('/', requireAuth, requirePrincipal(), async (c) => {
     return c.json({ data: studentList }, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to list students';
+    return c.json({ error: message }, 500);
+  }
+});
+
+/**
+ * GET /students/export
+ * Export student list as CSV
+ * Authorization: Principal only
+ * 
+ * Returns CSV file with student details (NO passwords - passwords only available at creation time)
+ * Format: Login ID, Name, Admission Number, Student Code, Account Status, Activation Status
+ */
+students.get('/export', requireAuth, requirePrincipal(), async (c) => {
+  try {
+    const tenant = requireSchoolTenant(c);
+    
+    const csvContent = await credentialsExportService.exportStudentList(
+      c.env.DB,
+      tenant.schoolId,
+      tenant
+    );
+    
+    // Return CSV file
+    return c.text(csvContent, 200, {
+      'Content-Type': 'text/csv',
+      'Content-Disposition': `attachment; filename="students-${tenant.schoolId}-${new Date().toISOString().split('T')[0]}.csv"`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to export students';
     return c.json({ error: message }, 500);
   }
 });

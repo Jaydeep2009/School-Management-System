@@ -41,7 +41,43 @@ export function StudentMarks() {
 
       // Extract the nested profile object
       setProfile(profileRes.data?.profile || profileRes.data);
-      setMarks(marksRes.data || []);
+      
+      // Backend returns { summary, subject_wise }
+      const marksData = marksRes.data || {};
+      const subjectWise = marksData.subject_wise || [];
+      
+      // Transform to frontend format
+      const transformedMarks = subjectWise.map((subject: any) => {
+        const totalObtained = subject.assessments.reduce((sum: number, a: any) => {
+          return sum + (a.status === 'graded' && a.marks_obtained !== null ? a.marks_obtained : 0);
+        }, 0);
+        
+        const totalMax = subject.assessments.reduce((sum: number, a: any) => {
+          return sum + a.max_marks;
+        }, 0);
+        
+        const percentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
+        
+        return {
+          subject_id: subject.subject_id,
+          subject_name: subject.subject_name,
+          subject_code: subject.subject_id, // Use ID as code for now
+          total_obtained: totalObtained,
+          total_max: totalMax,
+          percentage: percentage,
+          assessments: subject.assessments.map((a: any) => ({
+            assessment_id: a.assessment_id,
+            assessment_name: a.assessment_name,
+            assessment_type: a.weightage ? `Weighted (${a.weightage}%)` : 'Standard', // Generate type from weightage
+            max_marks: a.max_marks,
+            marks_obtained: a.marks_obtained,
+            conducted_on: a.held_on || new Date().toISOString().split('T')[0], // Use held_on or current date
+            remarks: null, // Backend doesn't provide remarks yet
+          }))
+        };
+      });
+      
+      setMarks(transformedMarks);
     } catch (err) {
       console.error('Failed to load marks:', err);
       setError(err instanceof Error ? err.message : 'Failed to load marks');
@@ -70,9 +106,10 @@ export function StudentMarks() {
 
   if (!user) return null;
 
-  // Calculate overall percentage
-  const totalObtained = marks.reduce((sum, sub) => sum + sub.total_obtained, 0);
-  const totalMax = marks.reduce((sum, sub) => sum + sub.total_max, 0);
+  // Calculate overall percentage - ensure marks is an array
+  const marksArray = Array.isArray(marks) ? marks : [];
+  const totalObtained = marksArray.reduce((sum, sub) => sum + (sub.total_obtained || 0), 0);
+  const totalMax = marksArray.reduce((sum, sub) => sum + (sub.total_max || 0), 0);
   const overallPercentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
 
   return (
@@ -145,7 +182,7 @@ export function StudentMarks() {
                         <span style={{ fontSize: '14px', color: '#1e40af', fontWeight: 500 }}>Subjects</span>
                       </div>
                       <div style={{ fontSize: '36px', fontWeight: 700, color: '#0f172a' }}>
-                        {marks.length}
+                        {marksArray.length}
                       </div>
                       <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
                         with published marks
@@ -171,7 +208,7 @@ export function StudentMarks() {
                   </Card>
                 ))}
               </>
-            ) : marks.length === 0 ? (
+            ) : marksArray.length === 0 ? (
               <Card>
                 <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
                   <GraduationCap size={64} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
@@ -184,7 +221,7 @@ export function StudentMarks() {
                 </div>
               </Card>
             ) : (
-              marks.map((subject) => (
+              marksArray.map((subject) => (
                 <Card key={subject.subject_id}>
                   <div style={{ padding: '24px' }}>
                     {/* Subject Header */}

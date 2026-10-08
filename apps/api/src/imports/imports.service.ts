@@ -314,7 +314,7 @@ async function validateTimetableImport(
 
       // Validate subject
       const subject = await db
-        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND code = ?`)
+        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND subject_code = ?`)
         .bind(tenant.schoolId, row.subject_code)
         .first<{ id: string }>();
 
@@ -461,7 +461,7 @@ async function commitTimetableImport(
       .first<{ id: string }>();
 
     const subject = await db
-      .prepare(`SELECT id FROM subjects WHERE school_id = ? AND code = ?`)
+      .prepare(`SELECT id FROM subjects WHERE school_id = ? AND subject_code = ?`)
       .bind(tenant.schoolId, row.subject_code)
       .first<{ id: string }>();
 
@@ -588,7 +588,7 @@ async function validateStudentsImport(
   let classroomId: string | undefined;
   if (classroomCode && academicYearId) {
     const classroom = await db
-      .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ? AND academic_year_id = ?`)
+      .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ? AND academic_year_id = ?`)
       .bind(tenant.schoolId, classroomCode, academicYearId)
       .first<{ id: string }>();
 
@@ -790,7 +790,7 @@ async function commitStudentsImport(
 
   if (!resolvedClassroomId && classroomCode && resolvedAcademicYearId) {
     const classroom = await db
-      .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ? AND academic_year_id = ?`)
+      .prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ? AND academic_year_id = ?`)
       .bind(tenant.schoolId, classroomCode, resolvedAcademicYearId)
       .first<{ id: string }>();
     
@@ -941,7 +941,7 @@ async function validateAttendanceImport(
 
       // Validate subject
       const subject = await db
-        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND code = ?`)
+        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND subject_code = ?`)
         .bind(tenant.schoolId, row.subject_code)
         .first<{ id: string }>();
 
@@ -1154,7 +1154,7 @@ async function commitAttendanceImport(
         .first<{ id: string }>();
 
       const subject = await db
-        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND code = ?`)
+        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND subject_code = ?`)
         .bind(tenant.schoolId, row.subject_code)
         .first<{ id: string }>();
 
@@ -1368,7 +1368,7 @@ async function validateMarksImport(
 
       // Validate subject
       const subject = await db
-        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND code = ?`)
+        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND subject_code = ?`)
         .bind(tenant.schoolId, row.subject_code)
         .first<{ id: string }>();
 
@@ -1566,7 +1566,7 @@ async function commitMarksImport(
         .first<{ id: string }>();
 
       const subject = await db
-        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND code = ?`)
+        .prepare(`SELECT id FROM subjects WHERE school_id = ? AND subject_code = ?`)
         .bind(tenant.schoolId, row.subject_code)
         .first<{ id: string }>();
 
@@ -1914,13 +1914,13 @@ async function validatePromotionImport(
         continue;
       }
 
-      const fromClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ?`).bind(tenant.schoolId, row.from_classroom_code).first<{ id: string }>();
+      const fromClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ?`).bind(tenant.schoolId, row.from_classroom_code).first<{ id: string }>();
       if (!fromClassroom) {
         errors.push({ row: rowNum, field: 'from_classroom_code', code: 'CLASSROOM_NOT_FOUND', message: `From classroom '${row.from_classroom_code}' not found` });
         continue;
       }
 
-      const toClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ?`).bind(tenant.schoolId, row.to_classroom_code).first<{ id: string }>();
+      const toClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ?`).bind(tenant.schoolId, row.to_classroom_code).first<{ id: string }>();
       if (!toClassroom) {
         errors.push({ row: rowNum, field: 'to_classroom_code', code: 'CLASSROOM_NOT_FOUND', message: `To classroom '${row.to_classroom_code}' not found` });
         continue;
@@ -1961,8 +1961,8 @@ async function commitPromotionImport(
       const row = rowData as PromotionImportRow;
 
       const student = await db.prepare(`SELECT user_id FROM student_profiles WHERE school_id = ? AND admission_number = ?`).bind(tenant.schoolId, row.student_admission_number).first<{ user_id: string }>();
-      const fromClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ?`).bind(tenant.schoolId, row.from_classroom_code).first<{ id: string }>();
-      const toClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND code = ?`).bind(tenant.schoolId, row.to_classroom_code).first<{ id: string }>();
+      const fromClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ?`).bind(tenant.schoolId, row.from_classroom_code).first<{ id: string }>();
+      const toClassroom = await db.prepare(`SELECT id FROM classrooms WHERE school_id = ? AND classroom_code = ?`).bind(tenant.schoolId, row.to_classroom_code).first<{ id: string }>();
 
       if (!student || !fromClassroom || !toClassroom) { rowsSkipped++; continue; }
 
@@ -1983,3 +1983,5 @@ async function commitPromotionImport(
 
   return { import_id: '', success: true, rows_created: rowsCreated, rows_updated: 0, rows_skipped: rowsSkipped, message: `Created ${rowsCreated} promotion item(s), skipped ${rowsSkipped}.` };
 }
+
+

@@ -223,11 +223,15 @@ export function AcademicStructure() {
       const md5Regex = /^[0-9a-f]{32}$/i;
       const isValidId = (id: string) => uuidRegex.test(id) || md5Regex.test(id);
       
+      if (!teacherId || teacherId.trim() === '') {
+        throw new Error('Please select a teacher');
+      }
+      
       if (!isValidId(teacherId)) {
         throw new Error('Invalid teacher selected');
       }
       
-      if (!isValidId(subjectId)) {
+      if (!subjectId || subjectId.trim() === '') {
         throw new Error('Invalid subject selected');
       }
       
@@ -722,13 +726,21 @@ export function AcademicStructure() {
                       >
                         <div>
                           <div style={{ fontWeight: 600 }}>
-                            {item.label || item.name || item.classroom_code || `${item.teacher_name} - ${item.subject_name}`}
+                            {/* For subjects, show name directly. For others, use label || name */}
+                            {activeTab === 'subjects' 
+                              ? item.name 
+                              : (item.label || item.name || item.classroom_code || `${item.teacher_name} - ${item.subject_name}`)
+                            }
                           </div>
-                          {item.code && <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>Code: {item.code}</div>}
+                          {(item.code || item.subject_code) && (
+                            <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                              Code: {item.code || item.subject_code}
+                            </div>
+                          )}
                           {item.classroom_code && (
                             <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
                               {item.grade_name} {item.division_name} (Level {item.grade_level})
-                              {item.class_teacher_name && ` â€¢ Class Teacher: ${item.class_teacher_name}`}
+                              {item.class_teacher_name && ` • Class Teacher: ${item.class_teacher_name}`}
                             </div>
                           )}
                           {item.start_date && item.end_date && (
@@ -749,52 +761,79 @@ export function AcademicStructure() {
                         </div>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {activeTab === 'years' && (
-                            <Button
-                              variant="secondary"
-                              size="small"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  const result = await apiService.exportAcademicYearData(item.id);
-                                  
-                                  // Convert to Excel using xlsx library
-                                  const XLSX = await import('xlsx');
-                                  const wb = XLSX.utils.book_new();
-                                  
-                                  // Students sheet
-                                  const studentsWs = XLSX.utils.json_to_sheet(result.data.students);
-                                  XLSX.utils.book_append_sheet(wb, studentsWs, 'Students');
-                                  
-                                  // Marks sheet
-                                  if (result.data.marks.length > 0) {
-                                    const marksWs = XLSX.utils.json_to_sheet(result.data.marks);
-                                    XLSX.utils.book_append_sheet(wb, marksWs, 'Marks');
+                            <>
+                              <Button
+                                variant="secondary"
+                                size="small"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!confirm(`Set "${item.label}" as the current academic year? All users will see this year's data.`)) {
+                                    return;
                                   }
-                                  
-                                  // Attendance sheet
-                                  if (result.data.attendance.length > 0) {
-                                    const attendanceWs = XLSX.utils.json_to_sheet(result.data.attendance);
-                                    XLSX.utils.book_append_sheet(wb, attendanceWs, 'Attendance');
+                                  try {
+                                    const result = await apiService.setCurrentAcademicYear(item.id);
+                                    alert(result.message || 'Academic year set as current');
+                                    await loadData();
+                                  } catch (err) {
+                                    console.error('Set current error:', err);
+                                    alert(err instanceof Error ? err.message : 'Failed to set as current');
                                   }
-                                  
-                                  // Fees sheet
-                                  if (result.data.fees.length > 0) {
-                                    const feesWs = XLSX.utils.json_to_sheet(result.data.fees);
-                                    XLSX.utils.book_append_sheet(wb, feesWs, 'Fees');
+                                }}
+                                style={{
+                                  background: item.status === 'current' ? '#dcfce7' : undefined,
+                                  color: item.status === 'current' ? '#16a34a' : undefined,
+                                  border: item.status === 'current' ? '1px solid #16a34a' : undefined
+                                }}
+                              >
+                                {item.status === 'current' ? '✓ Current Year' : 'Set as Current'}
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="small"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const result = await apiService.exportAcademicYearData(item.id);
+                                    
+                                    // Convert to Excel using xlsx library
+                                    const XLSX = await import('xlsx');
+                                    const wb = XLSX.utils.book_new();
+                                    
+                                    // Students sheet
+                                    const studentsWs = XLSX.utils.json_to_sheet(result.data.students);
+                                    XLSX.utils.book_append_sheet(wb, studentsWs, 'Students');
+                                    
+                                    // Marks sheet
+                                    if (result.data.marks.length > 0) {
+                                      const marksWs = XLSX.utils.json_to_sheet(result.data.marks);
+                                      XLSX.utils.book_append_sheet(wb, marksWs, 'Marks');
+                                    }
+                                    
+                                    // Attendance sheet
+                                    if (result.data.attendance.length > 0) {
+                                      const attendanceWs = XLSX.utils.json_to_sheet(result.data.attendance);
+                                      XLSX.utils.book_append_sheet(wb, attendanceWs, 'Attendance');
+                                    }
+                                    
+                                    // Fees sheet
+                                    if (result.data.fees.length > 0) {
+                                      const feesWs = XLSX.utils.json_to_sheet(result.data.fees);
+                                      XLSX.utils.book_append_sheet(wb, feesWs, 'Fees');
+                                    }
+                                    
+                                    // Download
+                                    XLSX.writeFile(wb, `${item.label}_data.xlsx`);
+                                    alert('Academic year data exported successfully!');
+                                  } catch (err) {
+                                    console.error('Export error:', err);
+                                    alert(err instanceof Error ? err.message : 'Failed to export data');
                                   }
-                                  
-                                  // Download
-                                  XLSX.writeFile(wb, `${item.label}_data.xlsx`);
-                                  alert('Academic year data exported successfully!');
-                                } catch (err) {
-                                  console.error('Export error:', err);
-                                  alert(err instanceof Error ? err.message : 'Failed to export data');
-                                }
-                              }}
-                            >
-                              <Download size={14} style={{ marginRight: '6px' }} />
-                              Export Data
-                            </Button>
+                                }}
+                              >
+                                <Download size={14} style={{ marginRight: '6px' }} />
+                                Export Data
+                              </Button>
+                            </>
                           )}
                           {activeTab === 'classrooms' && (
                             <Button 
