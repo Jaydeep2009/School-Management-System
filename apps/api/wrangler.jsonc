@@ -20,15 +20,14 @@
 			"remote": true
 		}
 	],
-	// R2 Storage binding for file uploads (timetable images, etc.)
-	// Temporarily disabled until R2 is enabled in Cloudflare dashboard
-	// "r2_buckets": [
-	// 	{
-	// 		"binding": "STORAGE",
-	// 		"bucket_name": "sms-storage",
-	// 		"preview_bucket_name": "sms-storage"
-	// 	}
-	// ],
+	// R2 Storage binding for file uploads (assignments, timetables, etc.)
+	"r2_buckets": [
+		{
+			"binding": "STORAGE",
+			"bucket_name": "sms-storage",
+			"preview_bucket_name": "sms-storage"
+		}
+	],
 	// Development settings
 	"observability": {
 		"enabled": true
