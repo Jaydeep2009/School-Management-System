@@ -21,7 +21,6 @@ interface FormData {
   title: string;
   message: string;
   target_audience: TargetAudience;
-  scheduled_at: string;
   push_notification_enabled: boolean;
 }
 
@@ -33,7 +32,6 @@ export function NotificationForm() {
     title: '',
     message: '',
     target_audience: 'all',
-    scheduled_at: '',
     push_notification_enabled: false,
   });
 
@@ -65,11 +63,6 @@ export function NotificationForm() {
         target_audience: formData.target_audience,
       };
 
-      // Only add scheduled_at if provided
-      if (formData.scheduled_at) {
-        data.scheduled_at = new Date(formData.scheduled_at).toISOString();
-      }
-
       // Push notifications (for future webapp)
       if (formData.push_notification_enabled) {
         data.push_notification_enabled = true;
@@ -77,18 +70,13 @@ export function NotificationForm() {
 
       await apiService.createNotification(data);
 
-      setSuccess(
-        formData.scheduled_at
-          ? 'Notification scheduled successfully!'
-          : 'Notification sent successfully!'
-      );
+      setSuccess('Notification sent successfully!');
 
       // Reset form
       setFormData({
         title: '',
         message: '',
         target_audience: 'all',
-        scheduled_at: '',
         push_notification_enabled: false,
       });
 
@@ -270,31 +258,6 @@ export function NotificationForm() {
                 </p>
               </div>
 
-              {/* Schedule Date (Optional) */}
-              <div>
-                <label htmlFor="scheduled_at" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
-                  Schedule for Later (Optional)
-                </label>
-                <input
-                  id="scheduled_at"
-                  type="datetime-local"
-                  value={formData.scheduled_at}
-                  onChange={(e) => updateField('scheduled_at', e.target.value)}
-                  disabled={isSubmitting}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    fontSize: '14px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    outline: 'none',
-                  }}
-                />
-                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                  Leave empty to send immediately
-                </p>
-              </div>
-
               {/* Push Notifications (Future Feature) */}
               <div style={{
                 padding: '16px',
@@ -325,11 +288,7 @@ export function NotificationForm() {
               <div style={{ display: 'flex', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
                 <Button type="submit" disabled={isSubmitting}>
                   <Send size={16} style={{ marginRight: '8px' }} />
-                  {isSubmitting 
-                    ? 'Sending...' 
-                    : formData.scheduled_at 
-                      ? 'Schedule Notification' 
-                      : 'Send Now'}
+                  {isSubmitting ? 'Sending...' : 'Send Notification'}
                 </Button>
                 <Button
                   type="button"
