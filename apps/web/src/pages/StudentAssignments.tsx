@@ -115,11 +115,34 @@ export function StudentAssignments() {
     return new Date(dueDate).toLocaleDateString();
   };
 
-  const handleDownload = (assignment: any) => {
-    if (assignment.attachment_url) {
-      // In production, this should go through an authenticated route
-      // For now, we'll open the attachment URL
-      window.open(assignment.attachment_url, '_blank');
+  const handleDownload = async (assignment: any, attachment: any) => {
+    try {
+      const baseUrl = 'https://sms-api.nmvpmsms.workers.dev';
+      const token = localStorage.getItem('token');
+      
+      const url = `${baseUrl}/assignments/${assignment.id}/attachments/${attachment.id}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = attachment.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      alert('Failed to download attachment');
     }
   };
 
@@ -341,45 +364,54 @@ export function StudentAssignments() {
                         </p>
                       )}
 
-                      {assignment.attachment_url && (
+                      {assignment.attachments && assignment.attachments.length > 0 && (
                         <div style={{ 
                           marginTop: '16px',
                           paddingTop: '16px',
                           borderTop: '1px solid #e2e8f0'
                         }}>
-                          <button
-                            onClick={() => handleDownload(assignment)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              padding: '10px 16px',
-                              background: '#f8fafc',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              fontWeight: 500,
-                              color: '#2563eb',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#2563eb';
-                              e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = '#f8fafc';
-                              e.currentTarget.style.color = '#2563eb';
-                            }}
-                          >
-                            <Download size={16} />
-                            Download Attachment
-                            {assignment.attachment_name && (
-                              <span style={{ fontSize: '13px', opacity: 0.8 }}>
-                                ({assignment.attachment_name})
-                              </span>
-                            )}
-                          </button>
+                          <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', marginBottom: '8px' }}>
+                            Attachments ({assignment.attachments.length}):
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {assignment.attachments.map((attachment: any) => (
+                              <button
+                                key={attachment.id}
+                                onClick={() => handleDownload(assignment, attachment)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '10px 16px',
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '6px',
+                                  fontSize: '14px',
+                                  fontWeight: 500,
+                                  color: '#2563eb',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  textAlign: 'left',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = '#2563eb';
+                                  e.currentTarget.style.color = 'white';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = '#f8fafc';
+                                  e.currentTarget.style.color = '#2563eb';
+                                }}
+                              >
+                                <Download size={16} />
+                                <span style={{ flex: 1 }}>{attachment.file_name}</span>
+                                {attachment.size_bytes && (
+                                  <span style={{ fontSize: '13px', opacity: 0.8 }}>
+                                    ({(attachment.size_bytes / 1024).toFixed(1)} KB)
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

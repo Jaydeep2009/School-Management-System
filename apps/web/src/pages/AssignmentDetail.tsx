@@ -65,16 +65,31 @@ export function AssignmentDetail() {
   const handleDownload = async (attachmentId: string, filename: string) => {
     if (!id) return;
     try {
-      const response = await apiService.getAssignmentAttachmentUrl(id, attachmentId);
-      const url = response.data.url;
+      // Download directly from API (which streams the file)
+      const baseUrl = 'https://sms-api.nmvpmsms.workers.dev';
+      const token = localStorage.getItem('token');
+      const url = `${baseUrl}/assignments/${id}/attachments/${attachmentId}`;
       
-      // Create temporary link and trigger download
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      // Get blob and download
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = downloadUrl;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to download file');
     }

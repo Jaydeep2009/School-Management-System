@@ -760,6 +760,10 @@ export class ApiService {
     return { data: { url } };
   }
 
+  async getAssignmentAttachments(assignmentId: string) {
+    return this.request<{ data: any[] }>(`/assignments/${assignmentId}/attachments`);
+  }
+
   async deleteAssignmentAttachment(assignmentId: string, attachmentId: string) {
     return this.request<{ message: string }>(`/assignments/${assignmentId}/attachments/${attachmentId}`, {
       method: 'DELETE',
