@@ -19,7 +19,6 @@ import { getRequestId } from '../lib/logging/request-id';
 interface AuthEnv {
   DB: D1Database;
   STORAGE: R2Bucket;
-  BUCKET: R2Bucket;
   JWT_SECRET: string;
   SUPER_ADMIN_LOGIN_ID?: string;
   SUPER_ADMIN_PASSWORD_HASH?: string;

@@ -28,7 +28,7 @@ import * as cronHandlers from './cron/handlers';
 export type Env = {
   DB: D1Database;
   JWT_SECRET: string;
-  BUCKET: R2Bucket;
+  STORAGE: R2Bucket;
 };
 
 const app = new Hono<{ Bindings: Env }>();

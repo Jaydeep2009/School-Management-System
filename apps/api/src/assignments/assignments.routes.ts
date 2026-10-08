@@ -227,7 +227,7 @@ assignments.post('/:id/close', requireAuth, async (c) => {
 assignments.post('/:id/attachments', requireAuth, async (c) => {
   try {
     // Check if R2 bucket is configured
-    if (!c.env.BUCKET) {
+    if (!c.env.STORAGE) {
       return c.json({ 
         error: 'File storage is not configured. Please enable R2 storage in Cloudflare dashboard to upload files.' 
       }, 503);
@@ -253,7 +253,7 @@ assignments.post('/:id/attachments', requireAuth, async (c) => {
 
     const attachment = await assignmentsService.uploadAttachment(
       c.env.DB,
-      c.env.BUCKET,
+      c.env.STORAGE,
       id,
       tenant,
       arrayBuffer,
@@ -322,7 +322,7 @@ assignments.get('/:id/attachments/:attachmentId', requireAuth, async (c) => {
 
     const { object, fileName, contentType } = await assignmentsService.downloadAttachment(
       c.env.DB,
-      c.env.BUCKET,
+      c.env.STORAGE,
       id,
       attachmentId,
       tenant
@@ -369,7 +369,7 @@ assignments.delete('/:id/attachments/:attachmentId', requireAuth, async (c) => {
 
     await assignmentsService.deleteAttachment(
       c.env.DB,
-      c.env.BUCKET,
+      c.env.STORAGE,
       id,
       attachmentId,
       tenant
