@@ -15,13 +15,12 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { apiService } from '../services/api';
 import { ArrowLeft, Send, Users, GraduationCap, BookOpen, AlertCircle, Info } from 'lucide-react';
-import type { TargetAudience, NotificationPriority } from '../types/notification';
+import type { TargetAudience } from '../types/notification';
 
 interface FormData {
   title: string;
   message: string;
   target_audience: TargetAudience;
-  priority: NotificationPriority;
   scheduled_at: string;
   push_notification_enabled: boolean;
 }
@@ -34,7 +33,6 @@ export function NotificationForm() {
     title: '',
     message: '',
     target_audience: 'all',
-    priority: 'normal',
     scheduled_at: '',
     push_notification_enabled: false,
   });
@@ -65,7 +63,6 @@ export function NotificationForm() {
         title: formData.title,
         message: formData.message,
         target_audience: formData.target_audience,
-        priority: formData.priority,
       };
 
       // Only add scheduled_at if provided
@@ -91,7 +88,6 @@ export function NotificationForm() {
         title: '',
         message: '',
         target_audience: 'all',
-        priority: 'normal',
         scheduled_at: '',
         push_notification_enabled: false,
       });
@@ -118,13 +114,6 @@ export function NotificationForm() {
     { value: 'all', label: 'All Users', icon: Users, description: 'Send to principals, teachers, and students' },
     { value: 'teachers', label: 'Teachers Only', icon: BookOpen, description: 'Send to all teachers' },
     { value: 'students', label: 'Students Only', icon: GraduationCap, description: 'Send to all students' },
-  ] as const;
-
-  const priorityOptions = [
-    { value: 'low', label: 'Low', color: '#64748b' },
-    { value: 'normal', label: 'Normal', color: '#3b82f6' },
-    { value: 'high', label: 'High', color: '#f59e0b' },
-    { value: 'urgent', label: 'Urgent', color: '#ef4444' },
   ] as const;
 
   return (
@@ -279,34 +268,6 @@ export function NotificationForm() {
                 <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
                   {formData.message.length}/2000 characters
                 </p>
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label htmlFor="priority" style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0f172a', marginBottom: '6px' }}>
-                  Priority
-                </label>
-                <select
-                  id="priority"
-                  value={formData.priority}
-                  onChange={(e) => updateField('priority', e.target.value as NotificationPriority)}
-                  disabled={isSubmitting}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    fontSize: '14px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    outline: 'none',
-                    background: '#fff',
-                  }}
-                >
-                  {priorityOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               {/* Schedule Date (Optional) */}
