@@ -22,6 +22,7 @@ import timetableRoutes from './timetable/timetable.routes';
 import periodTimingRoutes from './timetable/period-timing.routes';
 import importsRoutes from './imports/imports.routes';
 import schoolsRoutes from './schools/schools.routes';
+import notificationRoutes from './notifications/notifications.routes';
 import * as cronHandlers from './cron/handlers';
 
 export type Env = {
@@ -59,6 +60,7 @@ app.route('/promotions', promotionRoutes);
 app.route('/timetables', timetableRoutes);
 app.route('/period-timings', periodTimingRoutes);
 app.route('/imports', importsRoutes);
+app.route('/notifications', notificationRoutes);
 app.route('/me', meRoutes);
 
 // Default route

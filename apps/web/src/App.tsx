@@ -67,6 +67,8 @@ import { SchoolsList } from './pages/SchoolsList';
 import { SchoolDetails } from './pages/SchoolDetails';
 import { CreateSchool } from './pages/CreateSchool';
 import { EditSchool } from './pages/EditSchool';
+import { Notifications } from './pages/Notifications';
+import { NotificationForm } from './pages/NotificationForm';
 
 function App() {
   return (
@@ -537,6 +539,26 @@ function App() {
             <ProtectedRoute>
               <RoleRoute allowedRoles="principal">
                 <PromotionImport />
+              </RoleRoute>
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Notifications Routes */}
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications/new"
+          element={
+            <ProtectedRoute>
+              <RoleRoute allowedRoles="principal">
+                <NotificationForm />
               </RoleRoute>
             </ProtectedRoute>
           }

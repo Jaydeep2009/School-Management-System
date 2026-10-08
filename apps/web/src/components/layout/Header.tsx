@@ -5,6 +5,7 @@
 import { Menu, Search, Calendar, RefreshCw } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { useAcademicYear } from '../../contexts/AcademicYearContext';
+import { NotificationBell } from '../notifications/NotificationBell';
 import './Header.css';
 
 interface HeaderProps {
@@ -47,6 +48,9 @@ export function Header({
       </div>
 
       <div className="header-right">
+        {/* Notification Bell */}
+        <NotificationBell />
+
         {/* Academic Year Selector - Always visible */}
         <div style={{ 
           display: 'flex', 

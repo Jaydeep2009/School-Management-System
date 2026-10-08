@@ -18,6 +18,7 @@ import {
   Cake,
   Upload,
   FileSpreadsheet,
+  Bell,
   LogOut,
 } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
@@ -56,6 +57,7 @@ export function Sidebar({
     { path: '/fees', icon: DollarSign, label: 'Fees' },
     { path: '/timetable', icon: Calendar, label: 'Timetable' },
     { path: '/promotions', icon: TrendingUp, label: 'Promotions' },
+    { path: '/notifications', icon: Bell, label: 'Notifications' },
     { path: '/academic-years', icon: CalendarDays, label: 'Academic Years' },
     { path: '/birthdays', icon: Cake, label: 'Birthdays' },
     { path: '/imports', icon: Upload, label: 'Imports' },
@@ -70,6 +72,7 @@ export function Sidebar({
     { path: '/teacher/marks', icon: BarChart3, label: 'Marks' },
     { path: '/teacher/assignments', icon: FileText, label: 'Assignments' },
     { path: '/teacher/timetable', icon: Calendar, label: 'Timetable' },
+    { path: '/notifications', icon: Bell, label: 'Notifications' },
   ];
 
   // Student navigation
@@ -80,6 +83,7 @@ export function Sidebar({
     { path: '/student/marks', icon: BarChart3, label: 'My Marks' },
     { path: '/student/assignments', icon: FileText, label: 'Assignments' },
     { path: '/student/fees', icon: DollarSign, label: 'Fees' },
+    { path: '/notifications', icon: Bell, label: 'Notifications' },
     { path: '/student/profile', icon: Users, label: 'My Profile' },
   ];
 

@@ -1692,6 +1692,151 @@ export class ApiService {
   async exportAcademicYearData(academicYearId: string) {
     return this.request<{ data: any }>(`/academic-years/${academicYearId}/export`);
   }
+
+  // ========================================
+  // NOTIFICATION ENDPOINTS
+  // ========================================
+
+  /**
+   * Create and send a notification (Principal only)
+   * POST /notifications
+   */
+  async createNotification(data: {
+    title: string;
+    message: string;
+    target_audience: 'all' | 'teachers' | 'students';
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    scheduled_at?: string;
+    push_notification_enabled?: boolean;
+  }) {
+    return this.request<{ data: any }>('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * List all notifications (Principal only)
+   * GET /notifications
+   */
+  async getNotifications(params?: {
+    page?: number;
+    page_size?: number;
+    status?: string;
+    target_audience?: string;
+    priority?: string;
+    from_date?: string;
+    to_date?: string;
+  }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request<{ data: any[]; pagination: any }>(`/notifications${query}`);
+  }
+
+  /**
+   * Get notification by ID (Principal only)
+   * GET /notifications/:id
+   */
+  async getNotification(id: string) {
+    return this.request<{ data: any }>(`/notifications/${id}`);
+  }
+
+  /**
+   * Update notification (Principal only, only draft/scheduled)
+   * PATCH /notifications/:id
+   */
+  async updateNotification(id: string, data: {
+    title?: string;
+    message?: string;
+    target_audience?: 'all' | 'teachers' | 'students';
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+    scheduled_at?: string;
+    status?: string;
+  }) {
+    return this.request<{ data: any }>(`/notifications/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete notification (Principal only, only draft/scheduled)
+   * DELETE /notifications/:id
+   */
+  async deleteNotification(id: string) {
+    return this.request<{ message: string }>(`/notifications/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get current user's notifications
+   * GET /notifications/me/list
+   */
+  async getMyNotifications(params?: {
+    page?: number;
+    page_size?: number;
+    unread_only?: boolean;
+    priority?: string;
+    from_date?: string;
+    to_date?: string;
+  }) {
+    const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
+    return this.request<{ 
+      data: any[]; 
+      pagination: any;
+      unread_count: number;
+    }>(`/notifications/me/list${query}`);
+  }
+
+  /**
+   * Get unread notification count
+   * GET /notifications/me/unread-count
+   */
+  async getUnreadNotificationCount() {
+    return this.request<{ count: number }>('/notifications/me/unread-count');
+  }
+
+  /**
+   * Mark notification(s) as read
+   * POST /notifications/me/mark-read
+   */
+  async markNotificationsAsRead(data: {
+    notification_ids?: string[];
+    mark_all?: boolean;
+  }) {
+    return this.request<{ message: string }>('/notifications/me/mark-read', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Subscribe to push notifications (for future webapp)
+   * POST /notifications/push/subscribe
+   */
+  async subscribeToPushNotifications(data: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+    user_agent?: string;
+  }) {
+    return this.request<{ data: any }>('/notifications/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Unsubscribe from push notifications
+   * DELETE /notifications/push/unsubscribe
+   */
+  async unsubscribeFromPushNotifications(endpoint: string) {
+    return this.request<{ message: string }>(`/notifications/push/unsubscribe?endpoint=${encodeURIComponent(endpoint)}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService();
