@@ -1709,10 +1709,18 @@ export class ApiService {
     scheduled_at?: string;
     push_notification_enabled?: boolean;
   }) {
-    return this.request<{ data: any }>('/notifications', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    console.log('[API] Creating notification:', data);
+    try {
+      const response = await this.request<{ data: any }>('/notifications', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      console.log('[API] Notification created:', response);
+      return response;
+    } catch (error) {
+      console.error('[API] Failed to create notification:', error);
+      throw error;
+    }
   }
 
   /**

@@ -38,6 +38,12 @@ notifications.post(
       const tenant = requireSchoolTenant(c);
       const body = c.req.valid('json') as CreateNotificationRequest;
 
+      console.log('[Notifications] Creating notification:', {
+        schoolId: tenant.schoolId,
+        userId: tenant.userId,
+        data: body,
+      });
+
       const notification = await notificationService.createNotification(
         c.env.DB,
         tenant.schoolId,
@@ -45,13 +51,16 @@ notifications.post(
         body
       );
 
+      console.log('[Notifications] Notification created successfully:', notification.id);
+
       return c.json({ data: notification }, 201);
     } catch (error) {
+      console.error('[Notifications] Error creating notification:', error);
+      
       if (error instanceof notificationService.NotificationError) {
         return c.json({ error: error.message }, error.statusCode as 400 | 404 | 500);
       }
       const message = error instanceof Error ? error.message : 'Failed to create notification';
-      console.error('Create notification error:', error);
       return c.json({ error: message }, 500);
     }
   }

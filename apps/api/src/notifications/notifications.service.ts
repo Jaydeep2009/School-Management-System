@@ -89,27 +89,32 @@ async function sendNotificationToRecipients(
   // Get recipients based on target audience
   let recipients: Array<{ user_id: string; role: string }> = [];
 
-  if (notification.target_audience === 'all') {
-    // Get all users in the school (principals, teachers, students)
-    const [principals, teachers, students] = await Promise.all([
-      accountRepo.findPrincipalsBySchool(db, notification.school_id),
-      accountRepo.findTeachersBySchool(db, notification.school_id, {}),
-      accountRepo.findStudentsBySchool(db, notification.school_id, {}),
-    ]);
+  try {
+    if (notification.target_audience === 'all') {
+      // Get all users in the school (principals, teachers, students)
+      const [principals, teachers, students] = await Promise.all([
+        accountRepo.findPrincipalsBySchool(db, notification.school_id),
+        accountRepo.findTeachersBySchool(db, notification.school_id, {}),
+        accountRepo.findStudentsBySchool(db, notification.school_id, {}),
+      ]);
 
-    recipients = [
-      ...principals.map(p => ({ user_id: p.user_id, role: 'principal' })),
-      ...teachers.map(t => ({ user_id: t.user_id, role: 'teacher' })),
-      ...students.map(s => ({ user_id: s.user_id, role: 'student' })),
-    ];
-  } else if (notification.target_audience === 'teachers') {
-    // Get only teachers
-    const teachers = await accountRepo.findTeachersBySchool(db, notification.school_id, {});
-    recipients = teachers.map(t => ({ user_id: t.user_id, role: 'teacher' }));
-  } else if (notification.target_audience === 'students') {
-    // Get only students
-    const students = await accountRepo.findStudentsBySchool(db, notification.school_id, {});
-    recipients = students.map(s => ({ user_id: s.user_id, role: 'student' }));
+      recipients = [
+        ...principals.map(p => ({ user_id: p.user_id, role: 'principal' })),
+        ...teachers.map(t => ({ user_id: t.user_id, role: 'teacher' })),
+        ...students.map(s => ({ user_id: s.user_id, role: 'student' })),
+      ];
+    } else if (notification.target_audience === 'teachers') {
+      // Get only teachers
+      const teachers = await accountRepo.findTeachersBySchool(db, notification.school_id, {});
+      recipients = teachers.map(t => ({ user_id: t.user_id, role: 'teacher' }));
+    } else if (notification.target_audience === 'students') {
+      // Get only students
+      const students = await accountRepo.findStudentsBySchool(db, notification.school_id, {});
+      recipients = students.map(s => ({ user_id: s.user_id, role: 'student' }));
+    }
+  } catch (error) {
+    console.error('Error fetching recipients:', error);
+    throw new NotificationError('Failed to fetch recipients', 500);
   }
 
   // Filter out the sender (don't send notification to self)
