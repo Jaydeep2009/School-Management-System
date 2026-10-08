@@ -36,13 +36,12 @@ notifications.post(
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      const userId = c.get('userId')!;
       const body = c.req.valid('json') as CreateNotificationRequest;
 
       const notification = await notificationService.createNotification(
         c.env.DB,
         tenant.schoolId,
-        userId,
+        tenant.userId,
         body
       );
 
@@ -214,7 +213,6 @@ notifications.get(
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      const userId = c.get('userId')!;
 
       const page = parseInt(c.req.query('page') || '1');
       const pageSize = parseInt(c.req.query('page_size') || '50');
@@ -232,7 +230,7 @@ notifications.get(
 
       const result = await notificationService.getUserNotifications(
         c.env.DB,
-        userId,
+        tenant.userId,
         tenant.schoolId,
         filters,
         page,
@@ -259,11 +257,10 @@ notifications.get(
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      const userId = c.get('userId')!;
 
       const count = await notificationService.getUnreadCount(
         c.env.DB,
-        userId,
+        tenant.userId,
         tenant.schoolId
       );
 
@@ -288,12 +285,11 @@ notifications.post(
   async (c) => {
     try {
       const tenant = requireSchoolTenant(c);
-      const userId = c.get('userId')!;
       const body = c.req.valid('json') as { notification_ids?: string[]; mark_all?: boolean };
 
       await notificationService.markNotificationsAsRead(
         c.env.DB,
-        userId,
+        tenant.userId,
         tenant.schoolId,
         body.notification_ids,
         body.mark_all
@@ -326,7 +322,7 @@ notifications.post(
   zValidator('json', notificationSchemas.createPushSubscriptionSchema),
   async (c) => {
     try {
-      const userId = c.get('userId')!;
+      const tenant = requireSchoolTenant(c);
       const body = c.req.valid('json') as CreatePushSubscriptionRequest;
 
       // Get client IP and user agent
@@ -335,7 +331,7 @@ notifications.post(
 
       const subscription = await pushService.createSubscription(
         c.env.DB,
-        userId,
+        tenant.userId,
         body,
         userAgent,
         ipAddress
@@ -360,14 +356,14 @@ notifications.delete(
   requireAuth,
   async (c) => {
     try {
-      const userId = c.get('userId')!;
+      const tenant = requireSchoolTenant(c);
       const endpoint = c.req.query('endpoint');
 
       if (!endpoint) {
         return c.json({ error: 'Endpoint is required' }, 400);
       }
 
-      await pushService.deleteSubscription(c.env.DB, endpoint, userId);
+      await pushService.deleteSubscription(c.env.DB, endpoint, tenant.userId);
 
       return c.json({ message: 'Unsubscribed successfully' }, 200);
     } catch (error) {
