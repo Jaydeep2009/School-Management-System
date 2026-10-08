@@ -161,10 +161,11 @@ export async function getNotificationById(
 
   // Get sender name and recipient stats
   const [sender, recipientStats] = await Promise.all([
+    // For now, just get the login_id as sender name since we don't have a unified profile table
     db
-      .prepare('SELECT full_name FROM users WHERE id = ?')
+      .prepare('SELECT login_id FROM users WHERE id = ?')
       .bind(notification.sender_id)
-      .first<{ full_name: string }>(),
+      .first<{ login_id: string }>(),
     db
       .prepare(`
         SELECT 
@@ -179,7 +180,7 @@ export async function getNotificationById(
 
   return {
     ...notification,
-    sender_name: sender?.full_name,
+    sender_name: sender?.login_id,
     recipient_count: recipientStats?.total || 0,
     read_count: recipientStats?.read_count || 0,
     unread_count: (recipientStats?.total || 0) - (recipientStats?.read_count || 0),
@@ -208,9 +209,9 @@ export async function listNotifications(
     notifications.map(async (n) => {
       const [sender, recipientStats] = await Promise.all([
         db
-          .prepare('SELECT full_name FROM users WHERE id = ?')
+          .prepare('SELECT login_id FROM users WHERE id = ?')
           .bind(n.sender_id)
-          .first<{ full_name: string }>(),
+          .first<{ login_id: string }>(),
         db
           .prepare(`
             SELECT 
@@ -225,7 +226,7 @@ export async function listNotifications(
 
       return {
         ...n,
-        sender_name: sender?.full_name,
+        sender_name: sender?.login_id,
         recipient_count: recipientStats?.total || 0,
         read_count: recipientStats?.read_count || 0,
         unread_count: (recipientStats?.total || 0) - (recipientStats?.read_count || 0),

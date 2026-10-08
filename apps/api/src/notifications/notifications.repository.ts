@@ -338,7 +338,7 @@ export async function findUserNotifications(
       nr.read_at,
       nr.delivered_at,
       CASE WHEN nr.read_at IS NULL THEN 0 ELSE 1 END as is_read,
-      u.full_name as sender_name
+      u.login_id as sender_name
     FROM notifications n
     INNER JOIN notification_recipients nr ON n.id = nr.notification_id
     LEFT JOIN users u ON n.sender_id = u.id
